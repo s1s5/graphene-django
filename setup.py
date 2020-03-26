@@ -62,6 +62,7 @@ setup(
         "Django>=1.11",
         "singledispatch>=3.4.0.3",
         "promise>=2.1",
+        "natsort>=7.0.1",
     ],
     setup_requires=["pytest-runner"],
     tests_require=tests_require,
