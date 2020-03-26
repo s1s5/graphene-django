@@ -196,7 +196,8 @@ def convert_onetoone_field_to_djangomodel(field, registry=None):
         # We do this for a bug in Django 1.8, where null attr
         # is not available in the OneToOneRel instance
         null = getattr(field, "null", True)
-        return Field(_type, required=not null)
+        klass = getattr(_type._meta, 'one_to_one_connection_field_class', Field)
+        return klass(_type, required=not null)
 
     return Dynamic(dynamic_type)
 
@@ -224,14 +225,17 @@ def convert_field_to_list_or_connection(field, registry=None):
             # Use a DjangoFilterConnectionField if there are
             # defined filter_fields or a filterset_class in the
             # DjangoObjectType Meta
+
             if _type._meta.filter_fields or _type._meta.filterset_class:
                 from .filter.fields import DjangoFilterConnectionField
 
-                return DjangoFilterConnectionField(
+                klass = getattr(_type._meta, 'many_to_many_connection_field_class', DjangoFilterConnectionField)
+                return klass(
                     _type, required=True, description=description
                 )
 
-            return DjangoConnectionField(_type, required=True, description=description)
+            klass = getattr(_type._meta, 'many_to_many_connection_field_class', DjangoConnectionField)
+            return klass(_type, required=True, description=description)
 
         return DjangoListField(
             _type,
@@ -252,7 +256,8 @@ def convert_field_to_djangomodel(field, registry=None):
         if not _type:
             return
 
-        return Field(_type, description=field.help_text, required=not field.null)
+        klass = getattr(_type._meta, 'one_to_one_connection_field_class', Field)
+        return klass(_type, description=field.help_text, required=not field.null)
 
     return Dynamic(dynamic_type)
 
