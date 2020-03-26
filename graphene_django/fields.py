@@ -171,6 +171,9 @@ class DjangoConnectionField(ConnectionField):
                 ).format(last, info.field_name, max_limit)
                 args["last"] = min(last, max_limit)
 
+            if not (first or last):
+                assert False, "Please specify first or last to use max_limit"
+
         # eventually leads to DjangoObjectType's get_queryset (accepts queryset)
         # or a resolve_foo (does not accept queryset)
         iterable = resolver(root, info, **args)
