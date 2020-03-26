@@ -59,7 +59,11 @@ class BaseDjangoFormMutation(ClientIDMutation):
 
     @classmethod
     def get_form_kwargs(cls, root, info, **input):
-        kwargs = {"data": input}
+        prefix = info.path[0]
+        kwargs = {
+            "prefix": prefix,
+            "data": {'{}-{}'.format(prefix, key): value for key, value in input.items()},
+        }
 
         pk = input.pop("id", None)
         if pk:
