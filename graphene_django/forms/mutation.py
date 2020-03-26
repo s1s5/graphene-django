@@ -115,7 +115,9 @@ class DjangoModelDjangoFormMutationOptions(DjangoFormMutationOptions):
     return_field_name = None
 
 
-class DjangoModelFormMutation(BaseDjangoFormMutation):
+class DjangoCreateModelFormMutation(BaseDjangoFormMutation):
+    inject_id = False
+
     class Meta:
         abstract = True
 
@@ -143,7 +145,7 @@ class DjangoModelFormMutation(BaseDjangoFormMutation):
 
         form = form_class()
         input_fields = fields_for_form(form, only_fields, exclude_fields)
-        if "id" not in exclude_fields:
+        if cls.inject_id:
             input_fields["id"] = graphene.ID()
 
         registry = get_global_registry()
@@ -165,7 +167,7 @@ class DjangoModelFormMutation(BaseDjangoFormMutation):
         _meta.fields = yank_fields_from_attrs(output_fields, _as=Field)
 
         input_fields = yank_fields_from_attrs(input_fields, _as=InputField)
-        super(DjangoModelFormMutation, cls).__init_subclass_with_meta__(
+        super(DjangoCreateModelFormMutation, cls).__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
         )
 
@@ -174,3 +176,11 @@ class DjangoModelFormMutation(BaseDjangoFormMutation):
         obj = form.save()
         kwargs = {cls._meta.return_field_name: obj}
         return cls(errors=[], **kwargs)
+
+
+class DjangoUpdateModelFormMutation(DjangoCreateModelFormMutation):
+    inject_id = True
+
+    class Meta:
+        abstract = True
+
