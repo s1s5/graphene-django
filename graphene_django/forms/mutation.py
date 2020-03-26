@@ -6,6 +6,9 @@ from graphene import Field, InputField
 from graphene.relay.mutation import ClientIDMutation
 from graphene.types.mutation import MutationOptions
 
+from graphql_relay import from_global_id
+
+from django import forms
 # from graphene.types.inputobjecttype import (
 #     InputObjectTypeOptions,
 #     InputObjectType,
@@ -60,6 +63,10 @@ class BaseDjangoFormMutation(ClientIDMutation):
 
         pk = input.pop("id", None)
         if pk:
+            try:
+                pk = from_global_id(pk)[1]
+            except Exception:
+                raise forms.ValidationError('invalid id format')
             instance = cls._meta.model._default_manager.get(pk=pk)
             kwargs["instance"] = instance
 
