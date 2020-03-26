@@ -9,6 +9,8 @@ from graphene.types.mutation import MutationOptions
 from graphql_relay import from_global_id
 
 from django import forms
+from django.utils.datastructures import MultiValueDict
+
 # from graphene.types.inputobjecttype import (
 #     InputObjectTypeOptions,
 #     InputObjectType,
@@ -18,6 +20,8 @@ from graphene_django.registry import get_global_registry
 
 from ..types import ErrorType
 from .converter import convert_form_field
+
+import natsort
 
 
 def fields_for_form(form, only_fields, exclude_fields):
@@ -74,6 +78,21 @@ class BaseDjangoFormMutation(ClientIDMutation):
             instance = cls._meta.model._default_manager.get(pk=pk)
             kwargs["instance"] = instance
 
+        tmp = {}
+        for key, value in info.context.FILES.items():
+            try:
+                new_key = key[:len(key) - 1 - key[::-1].index('[')]
+            except ValueError:
+                new_key = key
+            ll = tmp.get(new_key, [])
+            ll.append((key, value))
+            tmp[new_key] = ll
+
+        files = MultiValueDict()
+        for key, values in tmp.items():
+            for old_key, value in natsort.natsorted(values):
+                files.appendlist(key, value)
+        kwargs["files"] = files
         return kwargs
 
 
