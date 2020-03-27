@@ -1175,7 +1175,7 @@ def test_should_preserve_annotations():
     assert result.data == expected, str(result.data)
 
 
-def test_0():
+def test_should_fields_converted():
     class FilmType(DjangoObjectType):
         class Meta:
             model = Film
@@ -1191,53 +1191,84 @@ def test_0():
                 Q(details__location__contains="Berlin") | Q(genre__in=["ot"])
             ).distinct()
 
-    f = Film.objects.create()
-
+    import os, uuid
     from django.core.files.base import ContentFile
-    f.data.save('a.txt', ContentFile(b'foo'), save=True)
 
     from PIL import Image
     import io
-    bio = io.BytesIO()
-    img = Image.new('RGB', (16, 8))
-    img.save(bio, format='png')
-    f.jacket.save('a.png', ContentFile(bio.getvalue()), save=True)
 
-    f.extra_data = b'foo'
-    f.save()
-    
-    fd = FilmDetails.objects.create(location="Berlin", film=f)
+    txt_filename = '{}.txt'.format(uuid.uuid4().hex)
+    png_filename = '{}.png'.format(uuid.uuid4().hex)
 
-    schema = graphene.Schema(query=Query)
-    query = """
-        query NodeFilteringQuery {
-            films {
-                edges {
-                    node {
-                        jacket {
-                            name
-                            size
-                            url
-                            width
-                            height
+    try:
+        f = Film.objects.create()
+
+        f.data.save(txt_filename, ContentFile(b'foo'), save=True)
+
+        bio = io.BytesIO()
+        img = Image.new('RGB', (16, 8))
+        img.save(bio, format='png')
+        f.jacket.save(png_filename, ContentFile(bio.getvalue()), save=True)
+
+        f.extra_data = b'foo'
+        f.save()
+
+        fd = FilmDetails.objects.create(location="Berlin", film=f)
+
+        schema = graphene.Schema(query=Query)
+        query = """
+            query NodeFilteringQuery {
+                films {
+                    edges {
+                        node {
+                            jacket {
+                                name
+                                size
+                                url
+                                width
+                                height
+                            }
+                            data {
+                                name
+                                size
+                                url
+                                data
+                            }
+                            extraData
                         }
-                        data {
-                            name
-                            size
-                            url
-                            data
-                        }
-                        extraData
                     }
                 }
             }
+        """
+
+        expected = {
+            "films": {"edges": [{"node": {
+                "jacket": {
+                    "name": png_filename,
+                    "size": 71,
+                    "url": png_filename,
+                    "width": 16,
+                    "height": 8,
+                },
+                "data": {
+                    "name": txt_filename,
+                    "size": 3,
+                    "url": txt_filename,
+                    "data": "Zm9v",
+                },
+                "extraData": "Zm9v",
+            }}]}
         }
-    """
 
-    # expected = {"films": {"edges": [{"node": {"genre": "OT"}}]}}
+        result = schema.execute(query)
+        assert not result.errors
+        assert result.data == expected
 
-    result = schema.execute(query)
-    print(result.to_dict())
-    # print(result.data['films']['edges'][0]['node'])
-    # assert not result.errors
-    # assert result.data == expected
+        f.data.delete()
+        f.jacket.delete()
+
+    finally:
+        if os.path.exists(txt_filename):
+            os.remove(txt_filename)
+        if os.path.exists(png_filename):
+            os.remove(png_filename)

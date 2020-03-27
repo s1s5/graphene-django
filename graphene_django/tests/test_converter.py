@@ -17,7 +17,7 @@ from ..converter import (
     generate_enum_name,
 )
 from ..registry import Registry
-from ..types import DjangoObjectType
+from ..types import DjangoObjectType, DjangoFileFieldType, DjangoImageFieldType
 from ..settings import graphene_settings
 from .models import Article, Film, FilmDetails, Reporter
 
@@ -83,11 +83,17 @@ def test_should_ipaddress_convert_string():
 
 
 def test_should_file_convert_string():
-    assert_conversion(models.FileField, graphene.String)
+    field = models.FileField(help_text="Custom Help Text", null=True)
+    graphene_type = convert_django_field(field)
+    assert isinstance(graphene_type, graphene.Field)
+    assert graphene_type.description == "Custom Help Text"
 
 
 def test_should_image_convert_string():
-    assert_conversion(models.ImageField, graphene.String)
+    field = models.ImageField(help_text="Custom Help Text", null=True)
+    graphene_type = convert_django_field(field)
+    assert isinstance(graphene_type, graphene.Field)
+    assert graphene_type.description == "Custom Help Text"
 
 
 def test_should_file_path_field_convert_string():
