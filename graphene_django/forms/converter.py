@@ -5,6 +5,7 @@ from graphene import ID, Boolean, Float, Int, List, String, UUID, Date, DateTime
 
 from .forms import GlobalIDFormField, GlobalIDMultipleChoiceField
 from ..utils import import_single_dispatch
+from ..scalars import Upload
 
 
 singledispatch = import_single_dispatch()
@@ -82,3 +83,9 @@ def convert_form_field_to_time(field):
 @convert_form_field.register(GlobalIDFormField)
 def convert_form_field_to_id(field):
     return ID(required=field.required)
+
+
+@convert_form_field.register(forms.FileField)
+@convert_form_field.register(forms.ImageField)
+def convert_form_field_to_upload(field):
+    return Upload(description=field.help_text, required=field.required)
