@@ -180,7 +180,7 @@ class DjangoCreateModelFormMutation(BaseDjangoFormMutation):
         form = form_class()
         input_fields = fields_for_form(form, only_fields, exclude_fields)
         if cls.inject_id:
-            input_fields["id"] = graphene.ID()
+            input_fields["id"] = graphene.ID(required=True)
 
         registry = get_global_registry()
         model_type = registry.get_type_for_model(model)
