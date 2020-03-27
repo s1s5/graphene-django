@@ -5,7 +5,7 @@ from graphene import ID, Boolean, Float, Int, List, String, UUID, Date, DateTime
 
 from .forms import GlobalIDFormField, GlobalIDMultipleChoiceField
 from ..utils import import_single_dispatch
-from ..scalars import Upload
+from ..types import Upload
 
 
 singledispatch = import_single_dispatch()

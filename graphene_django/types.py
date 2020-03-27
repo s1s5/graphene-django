@@ -1,6 +1,7 @@
 import warnings
 from collections import OrderedDict
 
+import base64
 import six
 from django.db.models import Model
 from django.utils.functional import SimpleLazyObject
@@ -124,6 +125,68 @@ def validate_fields(type_, model, fields, only_fields, exclude_fields):
                         type_=type_,
                     )
                 )
+
+
+class Upload(graphene.types.Scalar):
+    @staticmethod
+    def serialize(value):
+        return value
+
+    @staticmethod
+    def parse_literal(node):
+        return node
+
+    @staticmethod
+    def parse_value(value):
+        return value
+
+
+class DjangoFileFieldType(ObjectType):
+    name = graphene.String()
+    size = graphene.Int()
+    url = graphene.String()
+    data = graphene.String()
+
+    def resolve_name(root, info):
+        return root if root else None
+
+    def resolve_size(root, info):
+        return root.size if root else None
+
+    def resolve_url(root, info):
+        return root if root else None
+
+    def resolve_data(root, info):
+        if not root:
+            return
+        root.open('rb')
+        return base64.b64encode(root.read()).decode('ascii')
+
+
+class DjangoImageFieldType(DjangoFileFieldType):
+    width = graphene.Int()
+    height = graphene.Int()
+
+    def resolve_width(root, info):
+        return root.width if root else None
+
+    def resolve_height(root, info):
+        return root.height if root else None
+
+
+class DjangoBinaryFieldType(graphene.types.Scalar):
+    @staticmethod
+    def serialize(value):
+        return base64.b64encode(value).decode('ascii')
+
+    @staticmethod
+    def parse_literal(node):
+        return node
+
+    @staticmethod
+    def parse_value(value):
+        return base64.b64decode(value.encode('ascii'))
+
 
 
 class DjangoObjectTypeOptions(ObjectTypeOptions):

@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import django
 from django.db import models
 from django.utils.encoding import force_str
 from django.utils.module_loading import import_string
@@ -27,6 +28,7 @@ from .settings import graphene_settings
 from .compat import ArrayField, HStoreField, JSONField, RangeField
 from .fields import DjangoListField, DjangoConnectionField
 from .utils import import_single_dispatch
+from . import types as django_types
 
 singledispatch = import_single_dispatch()
 
@@ -127,15 +129,31 @@ def convert_django_field(field, registry=None):
 @convert_django_field.register(models.SlugField)
 @convert_django_field.register(models.URLField)
 @convert_django_field.register(models.GenericIPAddressField)
-@convert_django_field.register(models.FileField)
 @convert_django_field.register(models.FilePathField)
 def convert_field_to_string(field, registry=None):
     return String(description=field.help_text, required=not field.null)
 
 
+@convert_django_field.register(models.FileField)
+def convert_field_to_filefield(field, registry=None):
+    return Field(django_types.DjangoFileFieldType, description=field.help_text, required=not field.null)
+
+
+@convert_django_field.register(models.ImageField)
+def convert_field_to_imagefield(field, registry=None):
+    return Field(django_types.DjangoImageFieldType, description=field.help_text, required=not field.null)
+
+@convert_django_field.register(models.BinaryField)
+def convert_binaryfield_to_string(field, registry=None):
+    return django_types.DjangoBinaryFieldType(description=field.help_text, required=not field.null)
+
+
 @convert_django_field.register(models.AutoField)
 def convert_field_to_id(field, registry=None):
     return ID(description=field.help_text, required=not field.null)
+
+if django.VERSION[0] >= 3:
+    convert_django_field.register(models.SmallAutoField)(convert_field_to_id)
 
 
 @convert_django_field.register(models.UUIDField)
