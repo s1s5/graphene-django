@@ -53,8 +53,13 @@ class BaseDjangoFormMutation(ClientIDMutation):
             return cls.perform_mutate(form, info)
         else:
             errors = ErrorType.from_errors(form.errors)
-
-            return cls(errors=errors, **form.data)
+            if form.prefix:
+                p = len(form.prefix) + 1
+                return cls(errors=errors, **{
+                    key[p:] : value
+                    for key, value in form.data.items()})
+            else:
+                return cls(errors=errors, **form.data)
 
     @classmethod
     def get_form(cls, root, info, **input):
@@ -63,11 +68,16 @@ class BaseDjangoFormMutation(ClientIDMutation):
 
     @classmethod
     def get_form_kwargs(cls, root, info, **input):
-        prefix = info.path[0]
-        kwargs = {
-            "prefix": prefix,
-            "data": {'{}-{}'.format(prefix, key): value for key, value in input.items()},
-        }
+        if info and info.path:
+            prefix = info.path[0]
+            kwargs = {
+                "prefix": prefix,
+                "data": {'{}-{}'.format(prefix, key): value for key, value in input.items()},
+            }
+        else:
+            kwargs = {
+                "data": input
+            }
 
         pk = input.pop("id", None)
         if pk:
@@ -78,21 +88,22 @@ class BaseDjangoFormMutation(ClientIDMutation):
             instance = cls._meta.model._default_manager.get(pk=pk)
             kwargs["instance"] = instance
 
-        tmp = {}
-        for key, value in info.context.FILES.items():
-            try:
-                new_key = key[:len(key) - 1 - key[::-1].index('[')]
-            except ValueError:
-                new_key = key
-            ll = tmp.get(new_key, [])
-            ll.append((key, value))
-            tmp[new_key] = ll
+        if info and hasattr(info.context, 'FILES'):
+            tmp = {}
+            for key, value in info.context.FILES.items():
+                try:
+                    new_key = key[:len(key) - 1 - key[::-1].index('[')]
+                except ValueError:
+                    new_key = key
+                ll = tmp.get(new_key, [])
+                ll.append((key, value))
+                tmp[new_key] = ll
 
-        files = MultiValueDict()
-        for key, values in tmp.items():
-            for old_key, value in natsort.natsorted(values):
-                files.appendlist(key, value)
-        kwargs["files"] = files
+            files = MultiValueDict()
+            for key, values in tmp.items():
+                for old_key, value in natsort.natsorted(values):
+                    files.appendlist(key, value)
+            kwargs["files"] = files
         return kwargs
 
 

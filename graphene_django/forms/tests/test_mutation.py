@@ -7,8 +7,11 @@ from graphene import ObjectType, Schema, String, Field
 from graphene_django import DjangoObjectType
 from graphene_django.tests.models import Film, FilmDetails, Pet
 
+from graphql_relay import to_global_id
+
+
 from ...settings import graphene_settings
-from ..mutation import DjangoFormMutation, DjangoModelFormMutation
+from ..mutation import DjangoFormMutation, DjangoCreateModelFormMutation, DjangoUpdateModelFormMutation
 
 
 class MyForm(forms.Form):
@@ -77,7 +80,7 @@ def test_mutation_error_camelcased():
     class ExtraPetForm(PetForm):
         test_field = forms.CharField(required=True)
 
-    class PetMutation(DjangoModelFormMutation):
+    class PetMutation(DjangoCreateModelFormMutation):
         class Meta:
             form_class = ExtraPetForm
 
@@ -153,7 +156,7 @@ class FormMutationTests(TestCase):
 
 class ModelFormMutationTests(TestCase):
     def test_default_meta_fields(self):
-        class PetMutation(DjangoModelFormMutation):
+        class PetMutation(DjangoCreateModelFormMutation):
             class Meta:
                 form_class = PetForm
 
@@ -161,8 +164,18 @@ class ModelFormMutationTests(TestCase):
         self.assertEqual(PetMutation._meta.return_field_name, "pet")
         self.assertIn("pet", PetMutation._meta.fields)
 
-    def test_default_input_meta_fields(self):
-        class PetMutation(DjangoModelFormMutation):
+    def test_default_create_input_meta_fields(self):
+        class PetMutation(DjangoCreateModelFormMutation):
+            class Meta:
+                form_class = PetForm
+
+        self.assertEqual(PetMutation._meta.model, Pet)
+        self.assertEqual(PetMutation._meta.return_field_name, "pet")
+        self.assertIn("name", PetMutation.Input._meta.fields)
+        self.assertIn("client_mutation_id", PetMutation.Input._meta.fields)
+
+    def test_default_update_input_meta_fields(self):
+        class PetMutation(DjangoUpdateModelFormMutation):
             class Meta:
                 form_class = PetForm
 
@@ -173,7 +186,7 @@ class ModelFormMutationTests(TestCase):
         self.assertIn("id", PetMutation.Input._meta.fields)
 
     def test_exclude_fields_input_meta_fields(self):
-        class PetMutation(DjangoModelFormMutation):
+        class PetMutation(DjangoCreateModelFormMutation):
             class Meta:
                 form_class = PetForm
                 exclude_fields = ["id"]
@@ -186,7 +199,7 @@ class ModelFormMutationTests(TestCase):
         self.assertNotIn("id", PetMutation.Input._meta.fields)
 
     def test_return_field_name_is_camelcased(self):
-        class PetMutation(DjangoModelFormMutation):
+        class PetMutation(DjangoCreateModelFormMutation):
             class Meta:
                 form_class = PetForm
                 model = FilmDetails
@@ -195,7 +208,7 @@ class ModelFormMutationTests(TestCase):
         self.assertEqual(PetMutation._meta.return_field_name, "filmDetails")
 
     def test_custom_return_field_name(self):
-        class PetMutation(DjangoModelFormMutation):
+        class PetMutation(DjangoCreateModelFormMutation):
             class Meta:
                 form_class = PetForm
                 model = Film
@@ -206,7 +219,7 @@ class ModelFormMutationTests(TestCase):
         self.assertIn("animal", PetMutation._meta.fields)
 
     def test_model_form_mutation_mutate_existing(self):
-        class PetMutation(DjangoModelFormMutation):
+        class PetMutation(DjangoUpdateModelFormMutation):
             pet = Field(PetType)
 
             class Meta:
@@ -229,7 +242,7 @@ class ModelFormMutationTests(TestCase):
                 }
             }
             """,
-            variable_values={"pk": pet.pk},
+            variable_values={"pk": to_global_id('PetType', pet.pk)},
         )
 
         self.assertIs(result.errors, None)
@@ -240,7 +253,7 @@ class ModelFormMutationTests(TestCase):
         self.assertEqual(pet.name, "Mia")
 
     def test_model_form_mutation_creates_new(self):
-        class PetMutation(DjangoModelFormMutation):
+        class PetMutation(DjangoCreateModelFormMutation):
             pet = Field(PetType)
 
             class Meta:
@@ -271,7 +284,7 @@ class ModelFormMutationTests(TestCase):
         self.assertEqual(pet.age, 10)
 
     def test_model_form_mutation_mutate_invalid_form(self):
-        class PetMutation(DjangoModelFormMutation):
+        class PetMutation(DjangoCreateModelFormMutation):
             class Meta:
                 form_class = PetForm
 
