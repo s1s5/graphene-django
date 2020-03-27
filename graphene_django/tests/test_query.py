@@ -959,6 +959,7 @@ def test_proxy_model_support():
     """
     This test asserts that we can query for all Reporters and proxied Reporters.
     """
+    graphene_settings.RELAY_CONNECTION_MAX_LIMIT = 0
 
     class ReporterType(DjangoObjectType):
         class Meta:

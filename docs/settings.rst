@@ -94,7 +94,7 @@ Default: ``False``
 
 The maximum size of objects that can be requested through a relay connection.
 
-Default: ``100``
+Default: ``0``
 
 .. code:: python
 
