@@ -1,7 +1,7 @@
 import pytest
 from collections import namedtuple
 from django.db import models
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from graphene import NonNull
 from py.test import raises
 
@@ -208,7 +208,7 @@ def test_field_with_choices_convert_enum_false():
         help_text="Language", choices=(("es", "Spanish"), ("en", "English"))
     )
 
-    class TranslatedModel(models.Model):
+    class TranslatedModel_2(models.Model):
         language = field
 
         class Meta:
