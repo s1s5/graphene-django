@@ -1173,3 +1173,71 @@ def test_should_preserve_annotations():
         }
     }
     assert result.data == expected, str(result.data)
+
+
+def test_0():
+    class FilmType(DjangoObjectType):
+        class Meta:
+            model = Film
+            interfaces = (Node,)
+            # filter_fields = ("genre",)
+            fields = ("jacket", "data", "extra_data")
+
+    class Query(graphene.ObjectType):
+        films = DjangoConnectionField(FilmType)
+
+        def resolve_films(self, info, **args):
+            return Film.objects.filter(
+                Q(details__location__contains="Berlin") | Q(genre__in=["ot"])
+            ).distinct()
+
+    f = Film.objects.create()
+
+    from django.core.files.base import ContentFile
+    f.data.save('a.txt', ContentFile(b'foo'), save=True)
+
+    from PIL import Image
+    import io
+    bio = io.BytesIO()
+    img = Image.new('RGB', (16, 8))
+    img.save(bio, format='png')
+    f.jacket.save('a.png', ContentFile(bio.getvalue()), save=True)
+
+    f.extra_data = b'foo'
+    f.save()
+    
+    fd = FilmDetails.objects.create(location="Berlin", film=f)
+
+    schema = graphene.Schema(query=Query)
+    query = """
+        query NodeFilteringQuery {
+            films {
+                edges {
+                    node {
+                        jacket {
+                            name
+                            size
+                            url
+                            width
+                            height
+                        }
+                        data {
+                            name
+                            size
+                            url
+                            data
+                        }
+                        extraData
+                    }
+                }
+            }
+        }
+    """
+
+    # expected = {"films": {"edges": [{"node": {"genre": "OT"}}]}}
+
+    result = schema.execute(query)
+    print(result.to_dict())
+    # print(result.data['films']['edges'][0]['node'])
+    # assert not result.errors
+    # assert result.data == expected
