@@ -89,21 +89,8 @@ class BaseDjangoFormMutation(ClientIDMutation):
             kwargs["instance"] = instance
 
         if info and hasattr(info.context, 'FILES'):
-            tmp = {}
-            for key, value in info.context.FILES.items():
-                try:
-                    new_key = key[:len(key) - 1 - key[::-1].index('[')]
-                except ValueError:
-                    new_key = key
-                ll = tmp.get(new_key, [])
-                ll.append((key, value))
-                tmp[new_key] = ll
+            kwargs["files"] = info.context.FILES
 
-            files = MultiValueDict()
-            for key, values in tmp.items():
-                for old_key, value in natsort.natsorted(values):
-                    files.appendlist(key, value)
-            kwargs["files"] = files
         return kwargs
 
 
