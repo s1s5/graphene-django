@@ -1,9 +1,12 @@
+import functools
 import logging
 import json
 
 from asyncio import ensure_future
+from channels import DEFAULT_CHANNEL_LAYER
 from channels.consumer import await_many_dispatch, get_handler_name, StopConsumer
-from rx.core import ObserverBase
+from channels.layers import get_channel_layer
+from rx.core import ObserverBase, ObservableBase
 from graphql.execution.executors.asyncio import AsyncioExecutor
 from graphql.execution.executors.asyncio_utils import asyncgen_to_observable
 from graphene_django.settings import graphene_settings
@@ -160,3 +163,41 @@ class AsyncWebsocketConsumer(AsyncConsumer):
             logger.exception(e)
         finally:
             raise StopConsumer()
+
+
+class ChannelGroupObservable(ObservableBase):
+    def __init__(self, channel_group, channel_layer_alias=DEFAULT_CHANNEL_LAYER, loop=None, *args, **kwargs):
+        self.channel_group = channel_group
+        self.channel_layer_alias = channel_layer_alias
+        self.loop = loop
+        super().__init__(*args, **kwargs)
+
+    async def dispatch(self, observer):
+        channel_layer = get_channel_layer(self.channel_layer_alias)
+        channel_name = await channel_layer.new_channel()
+        channel_receive = functools.partial(channel_layer.receive, channel_name)
+
+        logger.debug('channel_layer.group_add(%s, %s)', self.channel_group, channel_name)
+        await channel_layer.group_add(self.channel_group, channel_name)
+        try:
+            while True:
+                observer.on_next(await channel_receive())
+        except Exception as e:
+            observer.on_error(e)
+        finally:
+            await channel_layer.group_discard(self.channel_group, channel_name)
+            logger.debug('channel_layer.group_discard(%s, %s)', self.channel_group, channel_name)
+
+
+    def _subscribe_core(self, observer):
+        task = ensure_future(self.dispatch(observer))
+
+        def dispose():
+            async def await_task():
+                await task
+
+            task.cancel()
+            ensure_future(await_task(), loop=self.loop)
+
+        return dispose
+
