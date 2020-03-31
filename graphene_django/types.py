@@ -188,6 +188,20 @@ class DjangoBinaryFieldType(graphene.types.Scalar):
         return base64.b64decode(value.encode('ascii'))
 
 
+class DefaultDjangoField(graphene.Field):
+    def __init__(self, _type, *args, **kwargs):
+        self._model = _type._meta.model
+        registry = get_global_registry()
+        self._type = registry.get_type_for_model(self._model)
+        self.__resolve = getattr(self._type, 'resolve', None)
+        super().__init__(_type, *args, resolver=self._resolve, **kwargs)
+
+    def _resolve(self, parent, info):
+        resolved = getattr(parent, info.field_name, None)
+        if self._resolve:
+            resolved = self.__resolve(parent, info, resolved)
+        return resolved
+
 
 class DjangoObjectTypeOptions(ObjectTypeOptions):
     model = None  # type: Model
@@ -197,27 +211,32 @@ class DjangoObjectTypeOptions(ObjectTypeOptions):
     filter_fields = ()
     filterset_class = None
 
+    connection_field_class = None
+    field_class = None
+
 
 class DjangoObjectType(ObjectType):
     @classmethod
     def __init_subclass_with_meta__(
-        cls,
-        model=None,
-        registry=None,
-        skip_registry=False,
-        only_fields=(),  # deprecated in favour of `fields`
-        fields=(),
-        exclude_fields=(),  # deprecated in favour of `exclude`
-        exclude=(),
-        filter_fields=None,
-        filterset_class=None,
-        connection=None,
-        connection_class=None,
-        use_connection=None,
-        interfaces=(),
-        convert_choices_to_enum=True,
-        _meta=None,
-        **options
+            cls,
+            model=None,
+            registry=None,
+            skip_registry=False,
+            only_fields=(),  # deprecated in favour of `fields`
+            fields=(),
+            exclude_fields=(),  # deprecated in favour of `exclude`
+            exclude=(),
+            filter_fields=None,
+            filterset_class=None,
+            connection_field_class = None,
+            field_class = None,
+            connection=None,
+            connection_class=None,
+            use_connection=None,
+            interfaces=(),
+            convert_choices_to_enum=True,
+            _meta=None,
+            **options
     ):
         assert is_valid_django_model(model), (
             'You need to pass a valid Django Model in {}.Meta, received "{}".'
@@ -309,12 +328,26 @@ class DjangoObjectType(ObjectType):
         if not _meta:
             _meta = DjangoObjectTypeOptions(cls)
 
+        if connection_field_class is None:
+            if filter_fields or filterset_class:
+                from .filter.fields import DjangoFilterConnectionField
+                connection_field_class = DjangoFilterConnectionField
+            else:
+                from .fields import DjangoConnectionField
+                connection_field_class = DjangoConnectionField
+
+        if field_class is None:
+            field_class = DefaultDjangoField
+
         _meta.model = model
         _meta.registry = registry
         _meta.filter_fields = filter_fields
         _meta.filterset_class = filterset_class
         _meta.fields = django_fields
         _meta.connection = connection
+        _meta.connection_field_class = connection_field_class
+        _meta.field_class = field_class
+
 
         super(DjangoObjectType, cls).__init_subclass_with_meta__(
             _meta=_meta, interfaces=interfaces, **options
