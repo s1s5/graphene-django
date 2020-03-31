@@ -2,6 +2,8 @@ import functools
 import logging
 import json
 
+import six
+
 from asyncio import ensure_future
 from channels import DEFAULT_CHANNEL_LAYER
 from channels.consumer import await_many_dispatch, get_handler_name, StopConsumer
@@ -120,12 +122,16 @@ class AsyncWebsocketConsumer(AsyncConsumer):
                 executor=AsyncWebsocketConsumer.Executor(),
             )
 
+            logger.debug('result %s, %s', result, hasattr(result, "subscribe"))
             if hasattr(result, "subscribe"):
                 observer = AsyncWebsocketConsumer.Observer(self._send, _id)
                 disposable = result.subscribe(observer)
                 self.disposable_list.append(disposable)
             else:
-                self._send(_id, 'data', result)
+                self._send(_id, 'data', dict(
+                    data=result.data,
+                    errors=[six.text_type(x) for x in result.errors],
+                    extensions=result.extensions))
 
         elif request["type"] == "stop":
             pass
