@@ -199,7 +199,7 @@ class DefaultDjangoField(graphene.Field):
     def _resolve(self, parent, info):
         resolved = getattr(parent, info.field_name, None)
         if self._resolve:
-            resolved = self.__resolve(parent, info, resolved)
+            resolved = self.__resolve(resolved, parent, info)
         return resolved
 
 
@@ -382,6 +382,10 @@ class DjangoObjectType(ObjectType):
     @classmethod
     def get_queryset(cls, queryset, info):
         return queryset
+
+    @classmethod
+    def resolve(cls, obj, parent, info):
+        return obj
 
     @classmethod
     def get_node(cls, info, id):
