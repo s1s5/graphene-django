@@ -26,6 +26,7 @@ tests_require = [
 
 
 dev_requires = [
+    "Pillow==7.0.0",
     "black==19.3b0",
     "flake8==3.7.7",
     "flake8-black==0.1.0",

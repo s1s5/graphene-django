@@ -795,7 +795,7 @@ def test_node_get_queryset_is_called():
 
 
 def test_integer_field_filter_type():
-    class PetType(DjangoObjectType):
+    class PetTypeA(DjangoObjectType):
         class Meta:
             model = Pet
             interfaces = (Node,)
@@ -803,7 +803,7 @@ def test_integer_field_filter_type():
             fields = ("age",)
 
     class Query(ObjectType):
-        pets = DjangoFilterConnectionField(PetType)
+        pets = DjangoFilterConnectionField(PetTypeA)
 
     schema = Schema(query=Query)
 
@@ -824,30 +824,30 @@ def test_integer_field_filter_type():
           endCursor: String
         }
 
-        type PetType implements Node {
+        type PetTypeA implements Node {
           age: Int!
           id: ID!
         }
 
-        type PetTypeConnection {
+        type PetTypeAConnection {
           pageInfo: PageInfo!
-          edges: [PetTypeEdge]!
+          edges: [PetTypeAEdge]!
         }
 
-        type PetTypeEdge {
-          node: PetType
+        type PetTypeAEdge {
+          node: PetTypeA
           cursor: String!
         }
 
         type Query {
-          pets(before: String, after: String, first: Int, last: Int, age: Int): PetTypeConnection
+          pets(before: String, after: String, first: Int, last: Int, age: Int): PetTypeAConnection
         }
     """
     )
 
 
 def test_other_filter_types():
-    class PetType(DjangoObjectType):
+    class PetTypeB(DjangoObjectType):
         class Meta:
             model = Pet
             interfaces = (Node,)
@@ -855,7 +855,7 @@ def test_other_filter_types():
             fields = ("age",)
 
     class Query(ObjectType):
-        pets = DjangoFilterConnectionField(PetType)
+        pets = DjangoFilterConnectionField(PetTypeB)
 
     schema = Schema(query=Query)
 
@@ -876,23 +876,23 @@ def test_other_filter_types():
           endCursor: String
         }
 
-        type PetType implements Node {
+        type PetTypeB implements Node {
           age: Int!
           id: ID!
         }
 
-        type PetTypeConnection {
+        type PetTypeBConnection {
           pageInfo: PageInfo!
-          edges: [PetTypeEdge]!
+          edges: [PetTypeBEdge]!
         }
 
-        type PetTypeEdge {
-          node: PetType
+        type PetTypeBEdge {
+          node: PetTypeB
           cursor: String!
         }
 
         type Query {
-          pets(before: String, after: String, first: Int, last: Int, age: Int, age_Isnull: Boolean, age_Lt: Int): PetTypeConnection
+          pets(before: String, after: String, first: Int, last: Int, age: Int, age_Isnull: Boolean, age_Lt: Int): PetTypeBConnection
         }
     """
     )

@@ -139,8 +139,6 @@ class DjangoModelDjangoFormMutationOptions(DjangoFormMutationOptions):
 
 class DjangoCreateModelFormMutation(BaseDjangoFormMutation):
     inject_id = False
-    return_edge = True
-    return_field_name = 'edge'
 
     class Meta:
         abstract = True
@@ -188,18 +186,15 @@ class DjangoCreateModelFormMutation(BaseDjangoFormMutation):
             raise Exception("No type registered for model: {}".format(model.__name__))
 
         if not return_field_name:
-            # model_name = model.__name__
-            # return_field_name = model_name[:1].lower() + model_name[1:]
-            return_field_name = cls.return_field_name
+            model_name = model.__name__
+            return_field_name = model_name[:1].lower() + model_name[1:]
 
         output_fields = OrderedDict()
-        if cls.return_edge:
-            edge_type = model_type._meta.connection_field_class(model_type).type.Edge
-            output_fields[return_field_name] = graphene.Field(edge_type)
-        else:
-            edge_type = None
-            output_fields[return_field_name] = graphene.Field(model_type)
 
+        output_fields[return_field_name] = graphene.Field(model_type)
+
+        edge_type = model_type._meta.connection_field_class(model_type).type.Edge
+        output_fields['edge'] = graphene.Field(edge_type)
 
         _meta = DjangoModelDjangoFormMutationOptions(cls)
         _meta.form_class = form_class
@@ -216,26 +211,18 @@ class DjangoCreateModelFormMutation(BaseDjangoFormMutation):
     @classmethod
     def perform_mutate(cls, form, info):
         obj = form.save()
-        if cls.return_edge:
-            kwargs = {cls._meta.return_field_name: cls._meta.edge_type(node=obj)}
-        else:
-            kwargs = {cls._meta.return_field_name: obj}
+        kwargs = {
+            cls._meta.return_field_name: obj,
+            'edge': cls._meta.edge_type(node=obj)
+        }
         return cls(errors=[], **kwargs)
 
 
 class DjangoUpdateModelFormMutation(DjangoCreateModelFormMutation):
     inject_id = True
-    return_edge = False
-    return_field_name = 'node'
 
     class Meta:
         abstract = True
-
-    @classmethod
-    def perform_mutate(cls, form, info):
-        obj = form.save()
-        kwargs = {cls._meta.return_field_name: obj}
-        return cls(errors=[], **kwargs)
 
 
 class DjangoDeleteModelFormMutation(ClientIDMutation):
@@ -253,11 +240,11 @@ class DjangoDeleteModelFormMutation(ClientIDMutation):
 
         output_fields = OrderedDict()
         output_fields['deleted_id'] = graphene.Field(graphene.ID)
+
         _meta = MutationOptions(cls)
         _meta.model = model
-        # _meta.fields = output_fields
         _meta.fields = yank_fields_from_attrs(output_fields, _as=Field)
-        # print(cls, model, options, output_fields, input_fields)
+
         print(input_fields)
         super(DjangoDeleteModelFormMutation, cls).__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
