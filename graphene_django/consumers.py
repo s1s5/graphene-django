@@ -47,13 +47,11 @@ class AsyncConsumer:
         await self.base_send(message)
 
 
-
-
 class AsyncWebsocketConsumer(AsyncConsumer):
     class Executor(AsyncioExecutor):
         def execute(self, fn, *args, **kwargs):
             result = super().execute(fn, *args, **kwargs)
-            if hasattr(result, '__aiter__'):
+            if hasattr(result, "__aiter__"):
                 return asyncgen_to_observable(result, loop=self.loop)
             return result
 
@@ -66,7 +64,7 @@ class AsyncWebsocketConsumer(AsyncConsumer):
 
         def _on_next_core(self, value):
             try:
-                logger.debug('_on_next_core %s', value)
+                logger.debug("_on_next_core %s", value)
                 if value.errors:
                     for error in value.errors:
                         logger.error('subscription error',
@@ -127,7 +125,6 @@ class AsyncWebsocketConsumer(AsyncConsumer):
                 disposable = result.subscribe(observer)
                 self.disposable_list.append(disposable)
             else:
-                # self._send_result(_id, result)
                 self._send(_id, 'data', result)
 
         elif request["type"] == "stop":

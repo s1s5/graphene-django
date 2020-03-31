@@ -31,6 +31,7 @@ dev_requires = [
     "flake8==3.7.7",
     "flake8-black==0.1.0",
     "flake8-bugbear==19.3.0",
+    "channels==2.4.0",
 ] + tests_require
 
 setup(
@@ -46,12 +47,11 @@ setup(
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
     keywords="api graphql protocol rest relay graphene",
