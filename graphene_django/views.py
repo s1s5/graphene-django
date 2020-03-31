@@ -153,7 +153,7 @@ class GraphQLView(View):
             response = e.response
             response["Content-Type"] = "application/json"
             response.content = self.json_encode(
-                request, {"errors": [self.format_error(e)]}
+                request, {"errors": self.format_error(e)}
             )
             return response
 
@@ -169,9 +169,9 @@ class GraphQLView(View):
             response = {}
 
             if execution_result.errors:
-                response["errors"] = [
-                    self.format_error(e) for e in execution_result.errors
-                ]
+                response["errors"] = sum(
+                    [self.format_error(e) for e in execution_result.errors],
+                    [])
 
             if execution_result.invalid:
                 status_code = 400
@@ -230,15 +230,15 @@ class GraphQLView(View):
                 raise HttpError(HttpResponseBadRequest("POST body sent invalid JSON."))
 
         elif content_type in [
-            "application/x-www-form-urlencoded",
-            "multipart/form-data",
+                "application/x-www-form-urlencoded",
+                "multipart/form-data",
         ]:
             return request.POST
 
         return {}
 
     def execute_graphql_request(
-        self, request, data, query, variables, operation_name, show_graphiql=False
+            self, request, data, query, variables, operation_name, show_graphiql=False
     ):
         if not query:
             if show_graphiql:
@@ -329,9 +329,21 @@ class GraphQLView(View):
     @staticmethod
     def format_error(error):
         if isinstance(error, GraphQLError):
-            return format_graphql_error(error)
+            base = format_graphql_error(error)
+            if getattr(error, 'original_error', None):
+                oe = error.original_error
 
-        return {"message": six.text_type(error)}
+                def get_error_dict(m):
+                    d = dict(**base)
+                    d['message'] = six.text_type(m)
+                    return d
+
+                if hasattr(oe, '__iter__'):
+                    return [get_error_dict(x) for x in oe]
+                if getattr(oe, 'error_list', None):
+                    return [get_error_dict(x) for x in oe.error_list]
+            return [base]
+        return [{"message": six.text_type(error)}]
 
     @staticmethod
     def get_content_type(request):

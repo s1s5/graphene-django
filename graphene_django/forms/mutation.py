@@ -54,13 +54,14 @@ class BaseDjangoFormMutation(ClientIDMutation):
             return cls.perform_mutate(form, info)
         else:
             errors = ErrorType.from_errors(form.errors)
-            if form.prefix:
-                p = len(form.prefix) + 1
-                return cls(errors=errors, **{
-                    key[p:] : value
-                    for key, value in form.data.items()})
-            else:
-                return cls(errors=errors, **form.data)
+            return cls(errors=errors)
+            # if form.prefix:
+            #     p = len(form.prefix) + 1
+            #     return cls(errors=errors, **{
+            #         key[p:] : value
+            #         for key, value in form.data.items()})
+            # else:
+            #     return cls(errors=errors, **form.data)
 
     @classmethod
     def get_form(cls, root, info, **input):
