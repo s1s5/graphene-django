@@ -55,13 +55,6 @@ class BaseDjangoFormMutation(ClientIDMutation):
         else:
             errors = ErrorType.from_errors(form.errors)
             return cls(errors=errors)
-            # if form.prefix:
-            #     p = len(form.prefix) + 1
-            #     return cls(errors=errors, **{
-            #         key[p:] : value
-            #         for key, value in form.data.items()})
-            # else:
-            #     return cls(errors=errors, **form.data)
 
     @classmethod
     def get_form(cls, root, info, **input):
@@ -131,6 +124,23 @@ class DjangoFormMutation(BaseDjangoFormMutation):
     def perform_mutate(cls, form, info):
         form.save()
         return cls(errors=[], **form.cleaned_data)
+
+    @classmethod
+    def mutate_and_get_payload(cls, root, info, **input):
+        form = cls.get_form(root, info, **input)
+
+        if form.is_valid():
+            return cls.perform_mutate(form, info)
+        else:
+            errors = ErrorType.from_errors(form.errors)
+            if form.prefix:
+                p = len(form.prefix) + 1
+                return cls(errors=errors, **{
+                    key[p:] : value
+                    for key, value in form.data.items()})
+            else:
+                return cls(errors=errors, **form.data)
+
 
 
 class DjangoModelDjangoFormMutationOptions(DjangoFormMutationOptions):
