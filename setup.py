@@ -67,7 +67,6 @@ setup(
     ],
     setup_requires=["pytest-runner"],
     tests_require=tests_require,
-    rest_framework_require=rest_framework_require,
     extras_require={
         "test": tests_require,
         "rest_framework": rest_framework_require,
