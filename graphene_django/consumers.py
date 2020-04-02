@@ -91,7 +91,7 @@ class AsyncWebsocketConsumer(AsyncConsumer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.disposable_list = []
+        self.disposable_map = {}
 
     async def websocket_connect(self, message):
         logger.debug('websocket_connect')
@@ -126,7 +126,7 @@ class AsyncWebsocketConsumer(AsyncConsumer):
             if hasattr(result, "subscribe"):
                 observer = AsyncWebsocketConsumer.Observer(self._send, _id)
                 disposable = result.subscribe(observer)
-                self.disposable_list.append(disposable)
+                self.disposable_map[_id] = disposable
             else:
                 self._send(_id, 'data', dict(
                     data=result.data,
@@ -134,7 +134,9 @@ class AsyncWebsocketConsumer(AsyncConsumer):
                     extensions=result.extensions))
 
         elif request["type"] == "stop":
-            pass
+            disposable = self.disposable_map.get(_id, None)
+            if disposable:
+                disposable.dispose()
 
     def _send(self, _id, type, payload):
         logger.debug('sending %s, %s', type, payload)
@@ -156,12 +158,12 @@ class AsyncWebsocketConsumer(AsyncConsumer):
         logger.debug('websocket_disconnect')
         await super().send({"type": "websocket.close", "code": 1000})
         try:
-            for disposable in self.disposable_list:
+            for disposable in self.disposable_map.values():
                 try:
                     disposable.dispose()
                 except Exception as e:
                     logger.exception(e)
-            self.disposable_list = []
+            self.disposable_map = {}
         except Exception as e:
             logger.exception(e)
         finally:
