@@ -119,3 +119,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 ## Release Notes
 
 * See [Releases page on github](https://github.com/graphql-python/graphene-django/releases)
+
+
+# 特定のテストだけ走らせる
+py.test -v graphene_django/tests/test_query.py
+
+
