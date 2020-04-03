@@ -118,11 +118,11 @@ def test_should_query_nested_field():
     assert not result.errors
     query = str(Reporter.objects.order_by("pk")[:1].query)
     assert result.data["__debug"]["sql"][0]["rawSql"] == query
-    assert "COUNT" in result.data["__debug"]["sql"][1]["rawSql"]
+    # assert "COUNT" in result.data["__debug"]["sql"][1]["rawSql"]
+    assert "tests_reporter_pets" in result.data["__debug"]["sql"][1]["rawSql"]
+    # assert "COUNT" in result.data["__debug"]["sql"][3]["rawSql"]
     assert "tests_reporter_pets" in result.data["__debug"]["sql"][2]["rawSql"]
-    assert "COUNT" in result.data["__debug"]["sql"][3]["rawSql"]
-    assert "tests_reporter_pets" in result.data["__debug"]["sql"][4]["rawSql"]
-    assert len(result.data["__debug"]["sql"]) == 5
+    assert len(result.data["__debug"]["sql"]) == 3
 
     assert result.data["reporter"] == expected["reporter"]
 
@@ -210,8 +210,10 @@ def test_should_query_connection():
     )
     assert not result.errors
     assert result.data["allReporters"] == expected["allReporters"]
-    assert "COUNT" in result.data["_debug"]["sql"][0]["rawSql"]
+    # assert "COUNT" in result.data["_debug"]["sql"][0]["rawSql"]
     query = str(Reporter.objects.all()[:1].query)
+
+    assert result.data["_debug"]["sql"][0]["rawSql"] == 'SELECT (1) AS "a" FROM "tests_reporter" LIMIT 1 OFFSET 1' # has_next_page = qs.exists()
     assert result.data["_debug"]["sql"][1]["rawSql"] == query
 
 
@@ -259,6 +261,7 @@ def test_should_query_connectionfilter():
     )
     assert not result.errors
     assert result.data["allReporters"] == expected["allReporters"]
-    assert "COUNT" in result.data["_debug"]["sql"][0]["rawSql"]
+    # assert "COUNT" in result.data["_debug"]["sql"][0]["rawSql"]
     query = str(Reporter.objects.all()[:1].query)
+    assert result.data["_debug"]["sql"][0]["rawSql"] == 'SELECT (1) AS "a" FROM "tests_reporter" LIMIT 1 OFFSET 1' # has_next_page = qs.exists()
     assert result.data["_debug"]["sql"][1]["rawSql"] == query

@@ -62,7 +62,7 @@ def test_should_query_simplelazy_objects():
     """
     result = schema.execute(query)
     assert not result.errors
-    assert result.data == {"reporter": {"id": "1"}}
+    assert result.data == {"reporter": {"id": 'UmVwb3J0ZXJUeXBlOjE='}}
 
 
 def test_should_query_well():
@@ -149,6 +149,11 @@ def test_should_query_postgres_fields():
 def test_should_node():
     # reset_global_registry()
     # Node._meta.registry = get_global_registry()
+    reporter = Reporter.objects.create(first_name='a', last_name='b', email='a@b.c')
+    Article.objects.create(headline="Hi!",
+                           pub_date=datetime.datetime.now().date(),
+                           pub_date_time=datetime.datetime.now(),
+                           reporter=reporter, editor=reporter)
 
     class ReporterNode(DjangoObjectType):
         class Meta:
@@ -160,7 +165,7 @@ def test_should_node():
             return Reporter(id=2, first_name="Cookie Monster")
 
         def resolve_articles(self, info, **args):
-            return [Article(headline="Hi!")]
+            return Article.objects.all()  # [Article(headline="Hi!")]
 
     class ArticleNode(DjangoObjectType):
         class Meta:
@@ -285,6 +290,7 @@ def test_should_query_onetoone_fields():
 
 
 def test_should_query_connectionfields():
+    reporter = Reporter.objects.create(first_name='a', last_name='b', email='a@b.c')
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
@@ -295,7 +301,7 @@ def test_should_query_connectionfields():
         all_reporters = DjangoConnectionField(ReporterType)
 
         def resolve_all_reporters(self, info, **args):
-            return [Reporter(id=1)]
+            return Reporter.objects.all()
 
     schema = graphene.Schema(query=Query)
     query = """
@@ -715,6 +721,7 @@ def test_should_error_if_last_is_greater_than_max():
 
 def test_should_query_promise_connectionfields():
     from promise import Promise
+    reporter = Reporter.objects.create(first_name='a', last_name='b', email='a@b.c')
 
     class ReporterType(DjangoObjectType):
         class Meta:
@@ -725,7 +732,7 @@ def test_should_query_promise_connectionfields():
         all_reporters = DjangoConnectionField(ReporterType)
 
         def resolve_all_reporters(self, info, **args):
-            return Promise.resolve([Reporter(id=1)])
+            return Promise.resolve(Reporter.objects.all())
 
     schema = graphene.Schema(query=Query)
     query = """
@@ -1118,7 +1125,7 @@ def test_should_preserve_prefetch_related(django_assert_num_queries):
         }
     """
     schema = graphene.Schema(query=Query)
-    with django_assert_num_queries(3) as captured:
+    with django_assert_num_queries(2) as captured:  # countを呼ばなくなったので3 -> 2に減らす
         result = schema.execute(query)
     assert not result.errors
 

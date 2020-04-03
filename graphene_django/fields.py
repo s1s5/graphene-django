@@ -1,7 +1,10 @@
 from functools import partial
+import logging
 
 import six
 from django.db.models.query import QuerySet
+from django.db.models import Q
+
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
 from promise import Promise
 
@@ -11,6 +14,8 @@ from graphene.types import Field, List
 
 from .settings import graphene_settings
 from .utils import maybe_queryset
+
+logger = logging.getLogger(__name__)
 
 
 class DjangoListField(Field):
@@ -117,25 +122,122 @@ class DjangoConnectionField(ConnectionField):
         return connection._meta.node.get_queryset(queryset, info)
 
     @classmethod
-    def resolve_connection(cls, connection, args, iterable):
-        iterable = maybe_queryset(iterable)
-        if isinstance(iterable, QuerySet):
-            _len = iterable.count()
+    def instance_to_cursor(cls, instance):
+        if instance:
+            try:
+                return hex(instance.pk)
+            except:
+                pass
+
+    @classmethod
+    def cursor_to_instance(cls, cursor, model_type):
+        if cursor:
+            return model_type._default_manager.objects.get(pk=int(cursor, 16))
+
+    @classmethod
+    def split_query(cls, queryset, order_by, instance):
+        sumq, q = None, None
+        for order in order_by:
+            if order.startswith('-'):
+                field = order[1:]
+                expr = '{}__gt'.format(field)
+            else:
+                field = order
+                expr = '{}__lt'.format(field)
+            o = getattr(instance, order)
+            if q is None:
+                cq = Q(**{expr: o})
+                q = Q(field=o)
+                sumq = cq
+            else:
+                # queryset = queryset.filter(q and Q(**{expr: cond[order]}))
+                cq = q and Q(**{expr: o})
+                q = q and Q(field=o)
+                sumq = sumq or cq
+        return queryset.filter(sumq), queryset.exclude(sumq)
+
+    @classmethod
+    def connection_from_queryset(cls, queryset, args, connection_type,
+                                 edge_type, pageinfo_type):
+        if 'order_by' in args and args['order_by']:  # TODO: order_byは固定・・・
+            order_by = args['order_by'].split(',')
         else:
-            _len = len(iterable)
-        connection = connection_from_list_slice(
-            iterable,
-            args,
-            slice_start=0,
-            list_length=_len,
-            list_slice_length=_len,
-            connection_type=connection,
-            edge_type=connection.Edge,
-            pageinfo_type=PageInfo,
+            assert hasattr(queryset.model._meta, 'ordering'), 'must specify order_by or ordering in models'
+            order_by = queryset.model._meta.ordering
+        model_type = connection_type._meta.node._meta.model
+
+        args = args or {}
+
+        before = cls.cursor_to_instance(args.get('before'), model_type)
+        after = cls.cursor_to_instance(args.get('after'), model_type)
+        first = args.get('first')
+        last = args.get('last')
+
+        has_next_page, has_previous_page = False, False
+        if before:
+            queryset, qs_ex = cls.split_query(queryset, order_by, before)
+            has_next_page = qs_ex.exists()
+
+        if after:
+            qs_ex, queryset = cls.split_query(queryset, order_by, after)
+            has_previous_page = qs_ex.exists()
+
+        if isinstance(first, int):
+            has_next_page = queryset[first:].exists()
+            queryset = queryset[:first]
+
+        if isinstance(last, int):
+            logger.warning('performance warning queryset.count called')
+            index = max(0, queryset.count() - last)
+            has_next_page = queryset[:index].exists()
+            queryset = queryset[index:]
+
+        edges = [
+            edge_type(
+                node=node,
+                cursor=cls.instance_to_cursor(node)
+            )
+            for node in queryset
+        ]
+
+        first_edge_cursor = edges[0].cursor if edges else None
+        last_edge_cursor = edges[-1].cursor if edges else None
+
+        return connection_type(
+            edges=edges,
+            page_info=pageinfo_type(
+                start_cursor=first_edge_cursor,
+                end_cursor=last_edge_cursor,
+                has_previous_page=has_previous_page,
+                has_next_page=has_next_page,
+            )
         )
-        connection.iterable = iterable
-        connection.length = _len
-        return connection
+
+    @classmethod
+    def resolve_connection(cls, connection, args, iterable):
+        try:
+            if isinstance(iterable, list):
+                # DataLoader使うとこっちが呼ばれる
+                _len = len(iterable)
+                return connection_from_list_slice(
+                    iterable,
+                    args,
+                    slice_start=0,
+                    list_length=_len,
+                    list_slice_length=_len,
+                    connection_type=connection,
+                    edge_type=connection.Edge,
+                    pageinfo_type=PageInfo)
+
+            iterable = maybe_queryset(iterable)
+            return cls.connection_from_queryset(
+                iterable, args,
+                connection_type=connection,
+                edge_type=connection.Edge,
+                pageinfo_type=PageInfo)
+        except Exception as e:
+            logger.exception(e)
+            raise
 
     @classmethod
     def connection_resolver(
