@@ -15,7 +15,7 @@ from ..converter import convert_choice_field_to_enum
 from .models import Article as ArticleModel
 from .models import Reporter as ReporterModel
 
-registry.reset_global_registry()
+# registry.reset_global_registry()
 
 
 class Reporter(DjangoObjectType):
@@ -23,6 +23,8 @@ class Reporter(DjangoObjectType):
 
     class Meta:
         model = ReporterModel
+        interfaces = ()
+        use_connection = False
 
 
 class ArticleConnection(Connection):
@@ -156,6 +158,55 @@ scalar Date
 
 scalar DateTime
 
+scalar DjangoBinaryFieldType
+
+type DjangoFileFieldType {
+  name: String
+  size: Int
+  url: String
+  data: String
+}
+
+type DjangoImageFieldType {
+  name: String
+  size: Int
+  url: String
+  data: String
+  width: Int
+  height: Int
+}
+
+type FilmDetailsType implements Node {
+  id: ID!
+  location: String!
+  film: FilmType!
+}
+
+enum FilmGenre {
+  DO
+  OT
+}
+
+type FilmType implements Node {
+  id: ID!
+  genre: FilmGenre!
+  reporters: [Reporter!]!
+  jacket: DjangoImageFieldType!
+  data: DjangoFileFieldType!
+  extraData: DjangoBinaryFieldType!
+  details: FilmDetailsType
+}
+
+type FilmTypeConnection {
+  pageInfo: PageInfo!
+  edges: [FilmTypeEdge]!
+}
+
+type FilmTypeEdge {
+  node: FilmType
+  cursor: String!
+}
+
 interface Node {
   id: ID!
 }
@@ -175,6 +226,7 @@ type Reporter {
   pets: [Reporter!]!
   aChoice: ReporterAChoice
   reporterType: ReporterReporterType
+  films(before: String, after: String, first: Int, last: Int): FilmTypeConnection!
   articles(before: String, after: String, first: Int, last: Int): ArticleConnection!
 }
 
@@ -412,6 +464,7 @@ class TestDjangoObjectType:
             class Meta:
                 model = PetModel
                 convert_choices_to_enum = False
+                interfaces = ()
 
         class Query(ObjectType):
             pet = Field(Pet)
@@ -441,6 +494,7 @@ class TestDjangoObjectType:
             class Meta:
                 model = PetModel
                 convert_choices_to_enum = ["kind"]
+                interfaces = ()
 
         class Query(ObjectType):
             pet = Field(Pet)
@@ -475,6 +529,7 @@ class TestDjangoObjectType:
             class Meta:
                 model = PetModel
                 convert_choices_to_enum = []
+                interfaces = ()
 
         class Query(ObjectType):
             pet = Field(Pet)
@@ -506,6 +561,7 @@ class TestDjangoObjectType:
             class Meta:
                 model = PetModel
                 fields = ["id", "kind"]
+                interfaces = ()
 
         class Query(ObjectType):
             pet = Field(PetModelKind)
@@ -544,6 +600,7 @@ class TestDjangoObjectType:
             class Meta:
                 model = PetModel
                 fields = ["id", "kind"]
+                interfaces = ()
 
         class Query(ObjectType):
             pet = Field(PetModelKind)

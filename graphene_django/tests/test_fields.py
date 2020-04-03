@@ -110,6 +110,7 @@ class TestDjangoListField:
             class Meta:
                 model = ArticleModel
                 fields = ("headline",)
+                use_connection = False
 
         class Reporter(DjangoObjectType):
             class Meta:
@@ -158,6 +159,7 @@ class TestDjangoListField:
             class Meta:
                 model = ArticleModel
                 fields = ("headline",)
+                use_connection = False
 
         class Reporter(DjangoObjectType):
             class Meta:

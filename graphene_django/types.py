@@ -233,7 +233,7 @@ class DjangoObjectType(ObjectType):
             connection=None,
             connection_class=None,
             use_connection=None,
-            interfaces=(),
+            interfaces=(Node, ),
             convert_choices_to_enum=True,
             _meta=None,
             **options

@@ -240,6 +240,7 @@ def test_should_manytomany_convert_connectionorlist_list():
     class A(DjangoObjectType):
         class Meta:
             model = Reporter
+            use_connection = False
 
     graphene_field = convert_django_field(
         Reporter._meta.local_many_to_many[0], A._meta.registry
@@ -274,6 +275,7 @@ def test_should_manytoone_convert_connectionorlist():
     class A(DjangoObjectType):
         class Meta:
             model = Article
+            use_connection = False
 
     graphene_field = convert_django_field(Reporter.articles.rel, A._meta.registry)
     assert isinstance(graphene_field, graphene.Dynamic)
