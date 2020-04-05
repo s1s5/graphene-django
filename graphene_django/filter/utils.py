@@ -1,7 +1,41 @@
+import itertools
 import six
 
+from django_filters import OrderingFilter
 from django_filters.utils import get_model_field
 from .filterset import custom_filterset_factory, setup_filterset
+
+
+class MultipleOrderingFilter(OrderingFilter):
+    max_conbination = 3
+
+    def filter(self, qs, value):
+        if value:
+            value = sum((y for y in (x.split(',') for x in value) if y), [])
+        return super().filter(qs, value)
+
+    def build_choices(self, fields, labels):
+        choices = super().build_choices(fields, labels)
+        multiple_choices = []
+        for i in range(2, min(len(choices) + 1, self.max_conbination)):
+            for j in itertools.permutations(choices, i):
+                s = set()
+                ok = True
+                for field, disp in j:
+                    if field.startswith('-'):
+                        field = field[1:]
+                    if field in s:
+                        ok = False
+                        break
+                    s.add(field)
+
+                if ok:
+                    multiple_choices.append((
+                        ','.join([field for field, _ in j]),
+                        ','.join([str(disp) for _, disp in j])))
+
+        return choices + multiple_choices
+
 
 
 def get_filtering_args_from_filterset(filterset_class, type):
