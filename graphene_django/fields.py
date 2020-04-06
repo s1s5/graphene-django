@@ -132,7 +132,7 @@ class DjangoConnectionField(ConnectionField):
     @classmethod
     def cursor_to_instance(cls, cursor, model_type):
         if cursor:
-            return model_type._default_manager.objects.get(pk=int(cursor, 16))
+            return model_type._default_manager.get(pk=int(cursor, 16))
 
     @classmethod
     def split_query(cls, queryset, order_by, instance):
@@ -144,7 +144,7 @@ class DjangoConnectionField(ConnectionField):
             else:
                 field = order
                 expr = '{}__lt'.format(field)
-            o = getattr(instance, order)
+            o = getattr(instance, field)
             if q is None:
                 cq = Q(**{expr: o})
                 q = Q(field=o)
