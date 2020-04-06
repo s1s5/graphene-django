@@ -10,9 +10,11 @@ if not DJANGO_FILTER_INSTALLED:
 else:
     from .fields import DjangoFilterConnectionField
     from .filterset import GlobalIDFilter, GlobalIDMultipleChoiceFilter
+    from .utils import MultipleOrderingFilter
 
     __all__ = [
         "DjangoFilterConnectionField",
         "GlobalIDFilter",
         "GlobalIDMultipleChoiceFilter",
+        "MultipleOrderingFilter",
     ]
