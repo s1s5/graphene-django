@@ -15,8 +15,6 @@ from ...settings import graphene_settings
 from ..mutation import DjangoFormMutation, DjangoCreateModelFormMutation, DjangoUpdateModelFormMutation
 from ...registry import reset_global_registry
 
-pytestmark = pytest.mark.django_db
-
 
 class MyForm(forms.Form):
     text = forms.CharField()
@@ -175,6 +173,7 @@ class FormMutationTests(TestCase):
         self.assertEqual(result.data["myMutation"]["text"], "VALID_INPUT")
 
 
+@pytest.mark.django_db
 class ModelFormMutationTests(TestCase):
     def setup_method(self, method):
         class PetType(DjangoObjectType):
