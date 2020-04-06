@@ -83,6 +83,8 @@ def test_post_save_created():
     assert recovered_event.instance.name == 'ichi'
     assert recovered_event.instance.age == 10
 
+    models.Pet.objects.all().delete()
+
 
 @pytest.mark.django_db
 @pytest.mark.asyncio
@@ -111,3 +113,5 @@ async def test_post_save_updated():
     assert isinstance(recovered_event.instance, models.Pet)
     assert recovered_event.instance.name == 'ichi'
     assert recovered_event.instance.age == 11
+
+    await sync_to_async(models.Pet.objects.all().delete)()
