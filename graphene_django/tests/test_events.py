@@ -13,7 +13,7 @@ from . import models
 
 @pytest.fixture(scope='function', autouse=True)
 def clear_post_save():
-    events._mem = []
+    events._mem = []  # これがないとupdatedでフリーズする
     yield
 
 
