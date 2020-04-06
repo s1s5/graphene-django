@@ -1,9 +1,15 @@
+import json
+import pytest
 import functools
 import asyncio
+
+import graphene
 
 from asgiref.sync import async_to_sync
 from channels import DEFAULT_CHANNEL_LAYER
 from channels.layers import get_channel_layer
+from channels.testing import WebsocketCommunicator
+
 
 from .. import consumers
 
@@ -35,4 +41,83 @@ def test_async_consumer():
 
     print(receive, send)
 
+
+@pytest.fixture()
+async def communicator():
+    class Query(graphene.ObjectType):
+        hello = graphene.String()
+
+        def resolve_hello(root, context):
+            return 'hello world'
+
+    class Subscription(graphene.ObjectType):
+        hello = graphene.String()
+
+        def resolve_hello(root, context):
+            def f(event):
+                return event['message']
+            return consumers.ChannelGroupObservable("hello-group").map(f)
+
+    schema = graphene.Schema(query=Query, subscription=Subscription)
+    app = functools.partial(consumers.AsyncWebsocketConsumer, schema=schema)
+    communicator = WebsocketCommunicator(app, "/")
+    connected, subprotocol = await communicator.connect()
+    assert connected
+    assert subprotocol == 'graphql-ws'
+
+    await communicator.send_to(text_data=json.dumps({
+        "type": "connection_init",
+    }))
+
+    yield communicator
+
+    await communicator.send_to(text_data=json.dumps({
+        "type": "stop",
+    }))
+
+    await communicator.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_hello_world(communicator):
+    await communicator.send_to(text_data=json.dumps({
+        "type": "start",
+        "payload": {
+            "query": "query { hello }"
+        }
+    }))
+
+    raw_response = await communicator.receive_from()
+    response = json.loads(raw_response)
+    assert response['type'] == 'data'
+    assert response['payload']['data'] == {'hello': 'hello world'}
+
+
+@pytest.mark.asyncio
+async def test_observable(communicator):
+    _id = 1
+    await communicator.send_to(text_data=json.dumps({
+        "type": "start",
+        "id": _id,
+        "payload": {
+            "query": "subscription { hello }"
+        }
+    }))
+
+    await asyncio.sleep(0.001) # これが重要。サーバー側に処理を返してあげないとgroup_addが遅れて失敗する
+
+    channel_layer = get_channel_layer(DEFAULT_CHANNEL_LAYER)
+    await channel_layer.group_send("hello-group", {"message": "hello-subsc"})
     
+    raw_response = await communicator.receive_from()
+    response = json.loads(raw_response)
+
+    assert response['type'] == 'data'
+    assert response['payload']['data'] == {'hello': 'hello-subsc'}
+
+    await communicator.send_to(text_data=json.dumps({
+        "type": "stop",
+        "id": _id,
+    }))
+
+    # TODO: これ以降メッセージを受診しないことの確認

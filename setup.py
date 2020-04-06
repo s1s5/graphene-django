@@ -22,6 +22,7 @@ tests_require = [
     "django-filter<2;python_version<'3'",
     "django-filter>=2;python_version>='3'",
     "pytest-django>=3.3.2",
+    "pytest-asyncio",
 ] + rest_framework_require
 
 

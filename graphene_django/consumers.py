@@ -90,6 +90,7 @@ class AsyncWebsocketConsumer(AsyncConsumer):
             self._send(self._id, 'complete', None)
 
     def __init__(self, *args, **kwargs):
+        self.schema = kwargs.pop('schema', graphene_settings.SCHEMA)
         super().__init__(*args, **kwargs)
         self.disposable_map = {}
 
@@ -109,14 +110,12 @@ class AsyncWebsocketConsumer(AsyncConsumer):
             payload = request["payload"]
             context = AttrDict(self.scope)
 
-            schema = graphene_settings.SCHEMA
-
-            result = schema.execute(
+            result = self.schema.execute(
                 payload["query"],
                 operation_name=payload.get("operationName"),
-                variables=payload.get("variables"),
-                context=context,
-                root=None,
+                variables_values=payload.get("variables"),
+                context_value=context,
+                root_value=None,
                 allow_subscriptions=True,
 
                 executor=AsyncWebsocketConsumer.Executor(),
@@ -130,7 +129,7 @@ class AsyncWebsocketConsumer(AsyncConsumer):
             else:
                 self._send(_id, 'data', dict(
                     data=result.data,
-                    errors=[six.text_type(x) for x in result.errors],
+                    errors=[six.text_type(x) for x in result.errors] if result.errors else None,
                     extensions=result.extensions))
 
         elif request["type"] == "stop":
