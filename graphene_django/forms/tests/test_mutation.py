@@ -12,7 +12,13 @@ from graphql_relay import to_global_id
 
 
 from ...settings import graphene_settings
-from ..mutation import DjangoFormMutation, DjangoCreateModelFormMutation, DjangoUpdateModelFormMutation
+from ..mutation import (
+    DjangoFormMutation,
+    DjangoCreateModelFormMutation,
+    DjangoUpdateModelFormMutation,
+    DjangoDeleteModelFormMutation,
+)
+
 from ...registry import reset_global_registry
 
 
@@ -226,6 +232,18 @@ class ModelFormMutationTests(TestCase):
         self.assertIn("client_mutation_id", PetMutation.Input._meta.fields)
         self.assertIn("id", PetMutation.Input._meta.fields)
 
+    def test_default_update_input_meta_fields_auto_gen(self):
+        class PetMutation(DjangoUpdateModelFormMutation):
+            class Meta:
+                model = Pet
+                fields = ('name', )
+
+        self.assertEqual(PetMutation._meta.model, Pet)
+        self.assertEqual(PetMutation._meta.return_field_name, "pet")
+        self.assertIn("name", PetMutation.Input._meta.fields)
+        self.assertIn("client_mutation_id", PetMutation.Input._meta.fields)
+        self.assertIn("id", PetMutation.Input._meta.fields)
+
     def test_exclude_fields_input_meta_fields(self):
         class PetMutation(DjangoCreateModelFormMutation):
             class Meta:
@@ -324,6 +342,36 @@ class ModelFormMutationTests(TestCase):
         self.assertEqual(pet.name, "Mia")
         self.assertEqual(pet.age, 10)
 
+    def test_model_form_mutation_creates_new_auto_generate_form(self):
+        class PetMutation(DjangoCreateModelFormMutation):
+            class Meta:
+                model = Pet
+                fields = ('name', 'age')
+
+        class Mutation(ObjectType):
+            pet_mutation = PetMutation.Field()
+
+        schema = Schema(query=MockQuery, mutation=Mutation)
+
+        result = schema.execute(
+            """ mutation PetMutation {
+                petMutation(input: { name: "Mia", age: 10 }) {
+                    pet {
+                        name
+                        age
+                    }
+                }
+            }
+            """
+        )
+        self.assertIs(result.errors, None)
+        self.assertEqual(result.data["petMutation"]["pet"], {"name": "Mia", "age": 10})
+
+        self.assertEqual(Pet.objects.count(), 1)
+        pet = Pet.objects.get()
+        self.assertEqual(pet.name, "Mia")
+        self.assertEqual(pet.age, 10)
+
     def test_model_form_mutation_mutate_invalid_form(self):
         class PetMutation(DjangoCreateModelFormMutation):
             class Meta:
@@ -340,3 +388,29 @@ class ModelFormMutationTests(TestCase):
         self.assertEqual(result.errors[0].messages, ["This field is required."])
         self.assertIn("age", fields_w_error)
         self.assertEqual(result.errors[1].messages, ["This field is required."])
+
+    def test_model_delete_mutation(self):
+        pet = Pet.objects.create(name='name', age=0)
+
+        class PetMutation(DjangoDeleteModelFormMutation):
+            class Meta:
+                model = Pet
+
+        class Mutation(ObjectType):
+            pet_delete = PetMutation.Field()
+
+        schema = Schema(mutation=Mutation)
+
+        result = schema.execute(
+            """ mutation PetMutation($pk: ID!) {
+                petDelete(input: { id: $pk }) {
+                    deletedId
+                }
+            }
+            """,
+            variable_values={"pk": to_global_id('PetType', pet.pk)},
+        )
+
+        assert not result.errors
+        assert result.data == {'petDelete': {'deletedId': 'UGV0VHlwZTox'}}
+        assert Pet.objects.all().count() == 0

@@ -240,6 +240,8 @@ class DjangoDeleteModelFormMutation(ClientIDMutation):
     class Meta:
         abstract = True
 
+    errors = graphene.List(ErrorType)
+
     @classmethod
     def __init_subclass_with_meta__(
             cls,
@@ -266,4 +268,4 @@ class DjangoDeleteModelFormMutation(ClientIDMutation):
         _id = input['id']
         obj = cls._meta.model.objects.get(pk=from_global_id(_id)[1])
         obj.delete()
-        return cls(deleted_id=_id)
+        return cls(errors=[], deleted_id=_id)
