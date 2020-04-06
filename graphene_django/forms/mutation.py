@@ -143,12 +143,12 @@ class DjangoFormMutation(BaseDjangoFormMutation):
 
 
 
-class DjangoModelDjangoFormMutationOptions(DjangoFormMutationOptions):
+class DjangoModelMutationOptions(DjangoFormMutationOptions):
     model = None
     return_field_name = None
 
 
-class DjangoCreateModelFormMutation(BaseDjangoFormMutation):
+class DjangoCreateModelMutation(BaseDjangoFormMutation):
     inject_id = False
 
     class Meta:
@@ -207,7 +207,7 @@ class DjangoCreateModelFormMutation(BaseDjangoFormMutation):
         edge_type = model_type._meta.connection_field_class(model_type).type.Edge
         output_fields['edge'] = graphene.Field(edge_type)
 
-        _meta = DjangoModelDjangoFormMutationOptions(cls)
+        _meta = DjangoModelMutationOptions(cls)
         _meta.form_class = form_class
         _meta.model = model
         _meta.return_field_name = return_field_name
@@ -215,7 +215,7 @@ class DjangoCreateModelFormMutation(BaseDjangoFormMutation):
         _meta.edge_type = edge_type
 
         input_fields = yank_fields_from_attrs(input_fields, _as=InputField)
-        super(DjangoCreateModelFormMutation, cls).__init_subclass_with_meta__(
+        super(DjangoCreateModelMutation, cls).__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
         )
 
@@ -229,14 +229,14 @@ class DjangoCreateModelFormMutation(BaseDjangoFormMutation):
         return cls(errors=[], **kwargs)
 
 
-class DjangoUpdateModelFormMutation(DjangoCreateModelFormMutation):
+class DjangoUpdateModelMutation(DjangoCreateModelMutation):
     inject_id = True
 
     class Meta:
         abstract = True
 
 
-class DjangoDeleteModelFormMutation(ClientIDMutation):
+class DjangoDeleteModelMutation(ClientIDMutation):
     class Meta:
         abstract = True
 
@@ -259,13 +259,17 @@ class DjangoDeleteModelFormMutation(ClientIDMutation):
         _meta.fields = yank_fields_from_attrs(output_fields, _as=Field)
 
         print(input_fields)
-        super(DjangoDeleteModelFormMutation, cls).__init_subclass_with_meta__(
+        super(DjangoDeleteModelMutation, cls).__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
         )
 
     @classmethod
     def mutate_and_get_payload(cls, root, info, **input):
         _id = input['id']
-        obj = cls._meta.model.objects.get(pk=from_global_id(_id)[1])
+        try:
+            obj = cls._meta.model.objects.get(pk=from_global_id(_id)[1])
+        except Exception:
+            return cls(errors=[ErrorType(field='id', messages=['no id found'])])
+
         obj.delete()
         return cls(errors=[], deleted_id=_id)
