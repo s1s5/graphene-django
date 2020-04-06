@@ -21,7 +21,7 @@ class SubscriptionEvent:
         event = self.to_dict()
 
         if asyncio._get_running_loop():
-            asyncio.run(channel_layer.group_send(group, event))
+            asyncio.ensure_future(channel_layer.group_send(group, event))
         else:
             async_to_sync(channel_layer.group_send)(group, event)
 
