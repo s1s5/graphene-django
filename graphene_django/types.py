@@ -188,22 +188,6 @@ class DjangoBinaryFieldType(graphene.types.Scalar):
         return base64.b64decode(value.encode('ascii'))
 
 
-class DefaultDjangoField(graphene.Field):
-    def __init__(self, _type, *args, **kwargs):
-        self._model = _type._meta.model
-        registry = get_global_registry()
-        self._type = registry.get_type_for_model(self._model)
-        self.__get_from_parent = getattr(self._type, 'get_from_parent', self._get_from_parent)
-        self.__resolve = getattr(self._type, 'resolve', lambda resolved, *args, **kwargs : resolved)
-        super().__init__(_type, *args, resolver=self._resolve, **kwargs)
-
-    def _get_from_parent(self, parent, info):
-        return getattr(parent, info.field_name, None)
-
-    def _resolve(self, parent, info):
-        return self.__resolve(self.__get_from_parent(parent, info), parent, info)
-
-
 class DjangoObjectTypeOptions(ObjectTypeOptions):
     model = None  # type: Model
     registry = None  # type: Registry
@@ -338,6 +322,7 @@ class DjangoObjectType(ObjectType):
                 connection_field_class = DjangoConnectionField
 
         if field_class is None:
+            from .fields import DefaultDjangoField
             field_class = DefaultDjangoField
 
         _meta.model = model

@@ -12,10 +12,27 @@ from graphene import NonNull
 from graphene.relay import ConnectionField, PageInfo
 from graphene.types import Field, List
 
+from .registry import get_global_registry
 from .settings import graphene_settings
 from .utils import maybe_queryset
 
 logger = logging.getLogger(__name__)
+
+
+class DefaultDjangoField(Field):
+    def __init__(self, _type, *args, **kwargs):
+        self._model = _type._meta.model
+        registry = get_global_registry()
+        self._type = registry.get_type_for_model(self._model)
+        self.__get_from_parent = getattr(self._type, 'get_from_parent', self._get_from_parent)
+        self.__resolve = getattr(self._type, 'resolve', lambda resolved, *args, **kwargs : resolved)
+        super().__init__(_type, *args, resolver=self._resolve, **kwargs)
+
+    def _get_from_parent(self, parent, info):
+        return getattr(parent, info.field_name, None)
+
+    def _resolve(self, parent, info):
+        return self.__resolve(self.__get_from_parent(parent, info), parent, info)
 
 
 class DjangoListField(Field):
@@ -150,20 +167,21 @@ class DjangoConnectionField(ConnectionField):
                 q = Q(field=o)
                 sumq = cq
             else:
-                # queryset = queryset.filter(q and Q(**{expr: cond[order]}))
                 cq = q and Q(**{expr: o})
                 q = q and Q(field=o)
                 sumq = sumq or cq
-        return queryset.filter(sumq), queryset.exclude(sumq)
+        return queryset.filter(sumq), queryset.exclude(sumq).exclude(pk=instance.pk)
 
     @classmethod
     def connection_from_queryset(cls, queryset, args, connection_type,
                                  edge_type, pageinfo_type):
         if 'order_by' in args and args['order_by']:  # TODO: order_byは固定・・・
             order_by = args['order_by'].split(',')
-        else:
-            assert hasattr(queryset.model._meta, 'ordering'), 'must specify order_by or ordering in models'
+        elif getattr(queryset.model._meta, 'ordering', None):
             order_by = queryset.model._meta.ordering
+        else:
+            order_by = ['pk']
+
         model_type = connection_type._meta.node._meta.model
 
         args = args or {}
