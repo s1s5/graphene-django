@@ -15,6 +15,8 @@ from ...settings import graphene_settings
 from ..mutation import DjangoFormMutation, DjangoCreateModelFormMutation, DjangoUpdateModelFormMutation
 from ...registry import reset_global_registry
 
+pytestmark = pytest.mark.django_db
+
 
 class MyForm(forms.Form):
     text = forms.CharField()
