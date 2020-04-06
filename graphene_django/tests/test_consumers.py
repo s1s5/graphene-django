@@ -52,11 +52,29 @@ async def communicator():
 
     class Subscription(graphene.ObjectType):
         hello = graphene.String()
+        count = graphene.Int(up_to=graphene.Int())
 
         def resolve_hello(root, context):
             def f(event):
                 return event['message']
             return consumers.ChannelGroupObservable("hello-group").map(f)
+
+        def resolve_count(root, context, up_to):
+            class AsyncIterable(object):
+                def __init__(self, up_to):
+                    self.up_to = up_to
+                    self.counter = -1
+
+                def __aiter__(self):
+                    return self
+
+                async def __anext__(self):
+                    self.counter += 1
+                    if self.counter < self.up_to:
+                        return self.counter
+                    else:
+                        raise StopAsyncIteration
+            return AsyncIterable(up_to)
 
     schema = graphene.Schema(query=Query, subscription=Subscription)
     app = functools.partial(consumers.AsyncWebsocketConsumer, schema=schema)
@@ -120,4 +138,35 @@ async def test_observable(communicator):
         "id": _id,
     }))
 
-    # TODO: これ以降メッセージを受診しないことの確認
+    # TODO: これ以降メッセージを受診しないことの確認はどうすればいいんだ
+
+
+@pytest.mark.asyncio
+async def test_async_iterable(communicator):
+    _id = 1
+    await communicator.send_to(text_data=json.dumps({
+        "type": "start",
+        "id": _id,
+        "payload": {
+            "query": "subscription { count(upTo: 3) }"
+        }
+    }))
+
+    await asyncio.sleep(0.001) # これが重要。サーバー側に処理を返してあげないとgroup_addが遅れて失敗する
+
+    for i in range(3):
+        raw_response = await communicator.receive_from()
+        response = json.loads(raw_response)
+        assert response['type'] == 'data'
+        assert response['payload']['data'] == {'count': i}
+
+    raw_response = await communicator.receive_from()
+    response = json.loads(raw_response)
+    assert response['type'] == 'complete'
+
+    await communicator.send_to(text_data=json.dumps({
+        "type": "stop",
+        "id": _id,
+    }))
+
+    # TODO: これ以降メッセージを受診しないことの確認はどうすればいいんだ
