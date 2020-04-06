@@ -4,9 +4,10 @@ import pytest
 
 from graphene import List, NonNull, ObjectType, Schema, String
 
-from ..fields import DjangoListField
+from ..fields import DjangoListField, DjangoConnectionField
 from ..registry import reset_global_registry
 from ..types import DjangoObjectType
+from .models import Pet as PetModel
 from .models import Article as ArticleModel
 from .models import Reporter as ReporterModel
 
@@ -209,3 +210,74 @@ class TestDjangoListField:
                 {"firstName": "Debra", "articles": []},
             ]
         }
+
+    def test_split_query(self):
+        class PetNode(DjangoObjectType):
+            class Meta:
+                model = PetModel
+
+        class Query(ObjectType):
+            pets = DjangoConnectionField(PetNode)
+
+        pets = []
+        for i in range(1, 6):
+            pets.append(PetModel.objects.create(name='name({})'.format(i),
+                                                age=i))
+
+        schema = Schema(query=Query)
+
+        query = """
+            query {
+                pets(first: 2) {
+                    edges {
+                        cursor
+                        node {
+                            name
+                            age
+                        }
+                    }
+                }
+            }
+        """
+
+        result = schema.execute(query)
+        assert not result.errors
+        assert result.data == {'pets': {'edges': [{'cursor': hex(pets[0].pk), 'node': {'name': 'name(1)', 'age': 1}}, {'cursor': hex(pets[1].pk), 'node': {'name': 'name(2)', 'age': 2}}]}}
+
+
+        query = """
+            query {
+                pets(first: 2, after: "%s") {
+                    edges {
+                        cursor
+                        node {
+                            name
+                            age
+                        }
+                    }
+                }
+            }
+        """ % hex(pets[1].pk)
+
+        result = schema.execute(query)
+        assert not result.errors
+        assert result.data == {'pets': {'edges': [{'cursor': hex(pets[2].pk), 'node': {'name': 'name(3)', 'age': 3}}, {'cursor': hex(pets[3].pk), 'node': {'name': 'name(4)', 'age': 4}}]}}
+
+
+        query = """
+            query {
+                pets(last: 2, before: "%s") {
+                    edges {
+                        cursor
+                        node {
+                            name
+                            age
+                        }
+                    }
+                }
+            }
+        """ % hex(pets[4].pk)
+
+        result = schema.execute(query)
+        assert not result.errors
+        assert result.data == {'pets': {'edges': [{'cursor': hex(pets[2].pk), 'node': {'name': 'name(3)', 'age': 3}}, {'cursor': hex(pets[3].pk), 'node': {'name': 'name(4)', 'age': 4}}]}}
