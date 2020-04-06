@@ -7,7 +7,7 @@ install-dev: dev-setup  # Alias install-dev -> dev-setup
 
 .PHONY: tests
 tests:
-	py.test graphene_django --cov=graphene_django -vv
+	py.test graphene_django --cov=graphene_django -vv --cov-report=html
 
 .PHONY: test
 test: tests  # Alias test -> tests

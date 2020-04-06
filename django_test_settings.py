@@ -32,4 +32,10 @@ GRAPHENE = {
     'SCHEMA': 'graphene_django.tests.schema_view.schema'
 }
 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
+
 ROOT_URLCONF = 'graphene_django.tests.urls'
