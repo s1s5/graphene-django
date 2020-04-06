@@ -139,6 +139,23 @@ class DjangoConnectionField(ConnectionField):
         return connection._meta.node.get_queryset(queryset, info)
 
     @classmethod
+    def get_before_and_after_cursor(cls, order_by, instance):
+        qs_before, qs_after = cls.split_query(instance._meta.model.objects.all(),
+                                              order_by, instance)
+
+        if qs_before.exists():
+            before = cls.instance_to_cursor(qs_before.reverse()[0])
+        else:
+            before = None
+
+        if qs_after.exists():
+            after = cls.instance_to_cursor(qs_after[0])
+        else:
+            after = None
+
+        return before, after
+
+    @classmethod
     def instance_to_cursor(cls, instance):
         if instance:
             try:

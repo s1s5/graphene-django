@@ -381,6 +381,14 @@ class DjangoObjectType(ObjectType):
         except cls._meta.model.DoesNotExist:
             return None
 
+    @classmethod
+    def Field(cls):
+        return graphene.relay.Node.Field(cls)
+
+    @classmethod
+    def Connection(cls):
+        return cls._meta.connection_field_class(cls)
+
 
 class ErrorType(ObjectType):
     field = graphene.String(required=True)
