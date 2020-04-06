@@ -16,13 +16,18 @@ from ..converter import (
     convert_django_field_with_choices,
     generate_enum_name,
 )
-from ..registry import Registry
+from ..registry import Registry, reset_global_registry
 from ..types import DjangoObjectType, DjangoFileFieldType, DjangoImageFieldType
 from ..settings import graphene_settings
 from .models import Article, Film, FilmDetails, Reporter
 
 
 # from graphene.core.types.custom_scalars import DateTime, Time, JSONString
+
+@pytest.fixture(scope='function', autouse=True)
+def clear_global_registry():
+    yield
+    reset_global_registry()
 
 
 def assert_conversion(django_field, graphene_field, *args, **kwargs):

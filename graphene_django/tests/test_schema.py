@@ -1,8 +1,15 @@
+import pytest
 from py.test import raises
 
-from ..registry import Registry
+from ..registry import Registry, reset_global_registry
 from ..types import DjangoObjectType
 from .models import Reporter
+
+
+@pytest.fixture()
+def use_global_registry():
+    yield
+    reset_global_registry()
 
 
 def test_should_raise_if_no_model():
@@ -44,7 +51,7 @@ def test_should_map_fields_correctly():
     assert sorted(fields[-2:]) == ["articles", "films"]
 
 
-def test_should_map_only_few_fields():
+def test_should_map_only_few_fields(use_global_registry):
     class Reporter2(DjangoObjectType):
         class Meta:
             model = Reporter

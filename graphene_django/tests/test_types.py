@@ -9,6 +9,7 @@ from graphene import Connection, Field, Interface, ObjectType, Schema, String
 from graphene.relay import Node
 
 from .. import registry
+from ..registry import reset_global_registry
 from ..settings import graphene_settings
 from ..types import DjangoObjectType, DjangoObjectTypeOptions
 from ..converter import convert_choice_field_to_enum
@@ -17,42 +18,46 @@ from .models import Reporter as ReporterModel
 
 # registry.reset_global_registry()
 
+@pytest.fixture(scope='function', autouse=True)
+def use_global_registry():
+    class Reporter(DjangoObjectType):
+        """Reporter description"""
 
-class Reporter(DjangoObjectType):
-    """Reporter description"""
-
-    class Meta:
-        model = ReporterModel
-        interfaces = ()
-        use_connection = False
-
-
-class ArticleConnection(Connection):
-    """Article Connection"""
-
-    test = String()
-
-    def resolve_test():
-        return "test"
-
-    class Meta:
-        abstract = True
+        class Meta:
+            model = ReporterModel
+            interfaces = ()
+            use_connection = False
 
 
-class Article(DjangoObjectType):
-    """Article description"""
+    class ArticleConnection(Connection):
+        """Article Connection"""
 
-    class Meta:
-        model = ArticleModel
-        interfaces = (Node,)
-        connection_class = ArticleConnection
+        test = String()
+
+        def resolve_test():
+            return "test"
+
+        class Meta:
+            abstract = True
 
 
-class RootQuery(ObjectType):
-    node = Node.Field()
+    class Article(DjangoObjectType):
+        """Article description"""
+
+        class Meta:
+            model = ArticleModel
+            interfaces = (Node,)
+            connection_class = ArticleConnection
 
 
-schema = Schema(query=RootQuery, types=[Article, Reporter])
+    class RootQuery(ObjectType):
+        node = Node.Field()
+
+
+    schema = Schema(query=RootQuery, types=[Article, Reporter])
+    
+    yield Reporter, Article, schema
+    reset_global_registry()
 
 
 def test_django_interface():
@@ -60,14 +65,21 @@ def test_django_interface():
     assert issubclass(Node, Node)
 
 
-@patch("graphene_django.tests.models.Article.objects.get", return_value=Article(id=1))
-def test_django_get_node(get):
-    article = Article.get_node(None, 1)
-    get.assert_called_with(pk=1)
-    assert article.id == 1
+def test_django_get_node(use_global_registry):
+    Reporter, Article, schema = use_global_registry
+    
+    @patch("graphene_django.tests.models.Article.objects.get", return_value=Article(id=1))
+    def sub(get):
+        article = Article.get_node(None, 1)
+        get.assert_called_with(pk=1)
+        assert article.id == 1
+
+    sub()
 
 
-def test_django_objecttype_map_correct_fields():
+def test_django_objecttype_map_correct_fields(use_global_registry):
+    Reporter, Article, schema = use_global_registry
+
     fields = Reporter._meta.fields
     fields = list(fields.keys())
     assert fields[:-2] == [
@@ -82,7 +94,9 @@ def test_django_objecttype_map_correct_fields():
     assert sorted(fields[-2:]) == ["articles", "films"]
 
 
-def test_django_objecttype_with_node_have_correct_fields():
+def test_django_objecttype_with_node_have_correct_fields(use_global_registry):
+    Reporter, Article, schema = use_global_registry
+
     fields = Article._meta.fields
     assert list(fields.keys()) == [
         "id",
@@ -116,7 +130,9 @@ def test_django_objecttype_with_custom_meta():
     assert isinstance(Article._meta, ArticleTypeOptions)
 
 
-def test_schema_representation():
+def test_schema_representation(use_global_registry):
+    Reporter, Article, schema = use_global_registry
+
     expected = """
 schema {
   query: RootQuery
@@ -158,55 +174,6 @@ scalar Date
 
 scalar DateTime
 
-scalar DjangoBinaryFieldType
-
-type DjangoFileFieldType {
-  name: String
-  size: Int
-  url: String
-  data: String
-}
-
-type DjangoImageFieldType {
-  name: String
-  size: Int
-  url: String
-  data: String
-  width: Int
-  height: Int
-}
-
-type FilmDetailsType implements Node {
-  id: ID!
-  location: String!
-  film: FilmType!
-}
-
-enum FilmGenre {
-  DO
-  OT
-}
-
-type FilmType implements Node {
-  id: ID!
-  genre: FilmGenre!
-  reporters: [Reporter!]!
-  jacket: DjangoImageFieldType!
-  data: DjangoFileFieldType!
-  extraData: DjangoBinaryFieldType!
-  details: FilmDetailsType
-}
-
-type FilmTypeConnection {
-  pageInfo: PageInfo!
-  edges: [FilmTypeEdge]!
-}
-
-type FilmTypeEdge {
-  node: FilmType
-  cursor: String!
-}
-
 interface Node {
   id: ID!
 }
@@ -226,7 +193,6 @@ type Reporter {
   pets: [Reporter!]!
   aChoice: ReporterAChoice
   reporterType: ReporterReporterType
-  films(before: String, after: String, first: Int, last: Int): FilmTypeConnection!
   articles(before: String, after: String, first: Int, last: Int): ArticleConnection!
 }
 

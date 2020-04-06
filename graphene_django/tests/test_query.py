@@ -15,11 +15,17 @@ from graphene.relay import Node
 from ..utils import DJANGO_FILTER_INSTALLED
 from ..compat import MissingType, JSONField
 from ..fields import DjangoConnectionField
+from ..registry import reset_global_registry
 from ..types import DjangoObjectType
 from ..settings import graphene_settings
 from .models import Article, CNNReporter, Reporter, Film, FilmDetails
 
 pytestmark = pytest.mark.django_db
+
+@pytest.fixture(scope='function', autouse=True)
+def clear_global_registry():
+    yield
+    reset_global_registry()
 
 
 def test_should_query_only_fields():

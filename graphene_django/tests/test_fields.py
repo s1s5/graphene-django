@@ -5,6 +5,7 @@ import pytest
 from graphene import List, NonNull, ObjectType, Schema, String
 
 from ..fields import DjangoListField
+from ..registry import reset_global_registry
 from ..types import DjangoObjectType
 from .models import Article as ArticleModel
 from .models import Reporter as ReporterModel
@@ -12,6 +13,9 @@ from .models import Reporter as ReporterModel
 
 @pytest.mark.django_db
 class TestDjangoListField:
+    def teardown_method(self, method):
+        reset_global_registry()
+
     def test_only_django_object_types(self):
         class TestType(ObjectType):
             foo = String()

@@ -1,3 +1,4 @@
+import pytest
 from django import forms
 from django.test import TestCase
 from django.core.exceptions import ValidationError
@@ -12,6 +13,7 @@ from graphql_relay import to_global_id
 
 from ...settings import graphene_settings
 from ..mutation import DjangoFormMutation, DjangoCreateModelFormMutation, DjangoUpdateModelFormMutation
+from ...registry import reset_global_registry
 
 
 class MyForm(forms.Form):
@@ -33,22 +35,28 @@ class PetForm(forms.ModelForm):
         fields = "__all__"
 
 
-class PetType(DjangoObjectType):
-    class Meta:
-        model = Pet
-        fields = "__all__"
+# @pytest.fixture(scope='function', autouse=True)
+# def types():
+#     class PetType(DjangoObjectType):
+#         class Meta:
+#             model = Pet
+#             fields = "__all__"
 
 
-class FilmType(DjangoObjectType):
-    class Meta:
-        model = Film
-        fields = "__all__"
+#     class FilmType(DjangoObjectType):
+#         class Meta:
+#             model = Film
+#             fields = "__all__"
 
 
-class FilmDetailsType(DjangoObjectType):
-    class Meta:
-        model = FilmDetails
-        fields = "__all__"
+#     class FilmDetailsType(DjangoObjectType):
+#         class Meta:
+#             model = FilmDetails
+#             fields = "__all__"
+
+#     yield PetType, FilmType, FilmDetails
+
+#     reset_global_registry()
 
 
 def test_needs_form_class():
@@ -76,7 +84,17 @@ def test_has_input_fields():
     assert "text" in MyMutation.Input._meta.fields
 
 
-def test_mutation_error_camelcased():
+@pytest.fixture()
+def pet_type():
+    class PetType(DjangoObjectType):
+        class Meta:
+            model = Pet
+            fields = "__all__"
+    yield PetType
+    reset_global_registry()
+
+
+def test_mutation_error_camelcased(pet_type):
     class ExtraPetForm(PetForm):
         test_field = forms.CharField(required=True)
 
@@ -90,6 +108,7 @@ def test_mutation_error_camelcased():
     result = PetMutation.mutate_and_get_payload(None, None)
     assert {f.field for f in result.errors} == {"name", "age", "testField"}
     graphene_settings.CAMELCASE_ERRORS = False
+
 
 
 class MockQuery(ObjectType):
@@ -155,6 +174,27 @@ class FormMutationTests(TestCase):
 
 
 class ModelFormMutationTests(TestCase):
+    def setup_method(self, method):
+        class PetType(DjangoObjectType):
+            class Meta:
+                model = Pet
+                fields = "__all__"
+
+        class FilmType(DjangoObjectType):
+            class Meta:
+                model = Film
+                fields = "__all__"
+
+        class FilmDetailsType(DjangoObjectType):
+            class Meta:
+                model = FilmDetails
+                fields = "__all__"
+
+        self.PetType = PetType
+
+    def teardown_method(self, method):
+        reset_global_registry()
+
     def test_default_meta_fields(self):
         class PetMutation(DjangoCreateModelFormMutation):
             class Meta:
@@ -220,7 +260,7 @@ class ModelFormMutationTests(TestCase):
 
     def test_model_form_mutation_mutate_existing(self):
         class PetMutation(DjangoUpdateModelFormMutation):
-            pet = Field(PetType)
+            pet = Field(self.PetType)
 
             class Meta:
                 form_class = PetForm
@@ -254,7 +294,7 @@ class ModelFormMutationTests(TestCase):
 
     def test_model_form_mutation_creates_new(self):
         class PetMutation(DjangoCreateModelFormMutation):
-            pet = Field(PetType)
+            pet = Field(self.PetType)
 
             class Meta:
                 form_class = PetForm
