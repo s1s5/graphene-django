@@ -7,6 +7,7 @@ from .utils import (
     import_single_dispatch,
     is_valid_django_model,
     maybe_queryset,
+    merge_schema,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "is_valid_django_model",
     "import_single_dispatch",
     "GraphQLTestCase",
+    "merge_schema",
 ]

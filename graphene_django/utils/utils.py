@@ -1,12 +1,15 @@
 import inspect
 
 import six
+from django.conf import settings
 from django.db import models
 from django.db.models.manager import Manager
 from django.utils.encoding import force_str
 from django.utils.functional import Promise
 
+import graphene
 from graphene.utils.str_converters import to_camel_case
+from graphene_django.debug import DjangoDebug
 
 try:
     import django_filters  # noqa
@@ -100,3 +103,39 @@ def import_single_dispatch():
         )
 
     return singledispatch
+
+
+def check_attrs_override(types):
+    keys = set()
+    for t in types:
+        k = set(x for x in dir(t) if not (
+            x.startswith('__') and x.endswith('__')))
+        if keys & k:
+            raise Exception('{} found same key'.format(keys & k))
+        keys.update(k)
+
+
+def merge_schema(*schemas):
+    queries, mutations, subscriptions = [], [], []
+    for schema in schemas:
+        queries.append(getattr(schema, 'Query', None))
+        mutations.append(getattr(schema, 'Mutation', None))
+        subscriptions.append(getattr(schema, 'Subscription', None))
+    queries = [x for x in queries if x] + [graphene.ObjectType]
+    mutations = [x for x in mutations if x] + [graphene.ObjectType]
+    subscriptions = [x for x in subscriptions if x] + [graphene.ObjectType]
+
+    check_attrs_override(queries[:-1])
+    check_attrs_override(mutations[:-1])
+    check_attrs_override(subscriptions[:-1])
+
+    query_attrs = {}
+
+    if settings.DEBUG:
+        query_attrs['debug'] = graphene.Field(DjangoDebug, name='_debug')
+
+    return (
+        type('Query', tuple(queries), query_attrs),
+        type('Mutation', tuple(mutations), {}),
+        type('Subscription', tuple(subscriptions), {}),
+    )
