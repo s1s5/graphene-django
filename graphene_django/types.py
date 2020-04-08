@@ -383,7 +383,7 @@ class DjangoObjectType(ObjectType):
 
     @classmethod
     def Field(cls):
-        return graphene.relay.Node.Field(cls)  # TODO : cls._meta.field_class(cls) だとid検索できない
+        return cls._meta.field_class(cls, id=graphene.ID(required=True))
 
     @classmethod
     def Connection(cls):

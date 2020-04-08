@@ -9,7 +9,7 @@ from graphql_relay.connection.arrayconnection import connection_from_list_slice
 from promise import Promise
 
 from graphene import NonNull
-from graphene.relay import ConnectionField, PageInfo
+from graphene.relay import ConnectionField, PageInfo, Node
 from graphene.types import Field, List
 
 from .registry import get_global_registry
@@ -33,6 +33,13 @@ class DefaultDjangoField(Field):
 
     def _resolve(self, parent, info):
         return self.__resolve(self.__get_from_parent(parent, info), parent, info)
+
+    def resolve_id(self, parent, info, id):
+        return self.__resolve(Node.get_node_from_global_id(info, id),
+                              parent, info)
+
+    def get_resolver(self, parent_resolver):
+        return self.resolve_id
 
 
 class DjangoListField(Field):
