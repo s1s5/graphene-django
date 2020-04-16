@@ -243,6 +243,77 @@ class ModelFormMutationTests(TestCase):
         self.assertIn("name", PetMutation.Input._meta.fields)
         self.assertIn("client_mutation_id", PetMutation.Input._meta.fields)
         self.assertIn("id", PetMutation.Input._meta.fields)
+        self.assertIn("name", PetMutation.Input._meta.fields)
+        self.assertNotIn("age", PetMutation.Input._meta.fields)
+
+    def test_default_update_input_meta_fields_auto_gen_execute(self):
+        pet = Pet.objects.create(name='name', age=0)
+
+        class PetMutation(DjangoUpdateModelMutation):
+            class Meta:
+                model = Pet
+                fields = ('name', 'age')
+
+        class Mutation(ObjectType):
+            pet_update = PetMutation.Field()
+
+        schema = Schema(mutation=Mutation)
+        result = schema.execute(
+            """ mutation PetMutation($pk: ID!, $name: String!) {
+                petUpdate(input: { id: $pk, name: $name }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        id
+                        name
+                        age
+                    }
+                }
+            }
+            """,
+            variable_values={"pk": to_global_id('PetType', 1), 'name': 'new-name'},
+        )
+
+        print(result.errors)
+        print(result.data)
+        assert not result.errors
+        assert result.data == {'petUpdate': {'errors': [], 'pet': {'id': 'UGV0VHlwZTox', 'name': 'new-name', 'age': 0}}}
+
+
+    def test_default_update_input_meta_fields_auto_gen_execute_error(self):
+        pet = Pet.objects.create(name='name', age=0)
+
+        class PetMutation(DjangoUpdateModelMutation):
+            class Meta:
+                model = Pet
+                fields = ('age', )
+
+        class Mutation(ObjectType):
+            pet_update = PetMutation.Field()
+
+        schema = Schema(mutation=Mutation)
+        result = schema.execute(
+            """ mutation PetMutation($pk: ID!, $name: String!) {
+                petUpdate(input: { id: $pk, name: $name }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        id
+                        name
+                        age
+                    }
+                }
+            }
+            """,
+            variable_values={"pk": to_global_id('PetType', 1), 'name': 'new-name'},
+        )
+
+        assert len(result.errors) == 1
+
 
     def test_exclude_fields_input_meta_fields(self):
         class PetMutation(DjangoCreateModelMutation):
@@ -429,10 +500,10 @@ class ModelFormMutationTests(TestCase):
         result = schema.execute(
             """ mutation PetMutation($pk: ID!) {
                 petDelete(input: { id: $pk }) {
-            errors {
-            field
-messages
-}
+                    errors {
+                        field
+                        messages
+                    }
                     deletedId
                 }
             }

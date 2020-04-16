@@ -122,6 +122,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 
 # 特定のテストだけ走らせる
-py.test -v graphene_django/tests/test_query.py
+py.test -s -v graphene_django/tests/test_query.py
 
 
