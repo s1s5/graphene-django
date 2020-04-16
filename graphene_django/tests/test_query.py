@@ -75,6 +75,7 @@ def test_should_query_well():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
 
     class Query(graphene.ObjectType):
         reporter = graphene.Field(ReporterType)
@@ -116,6 +117,7 @@ def test_should_query_postgres_fields():
     class EventType(DjangoObjectType):
         class Meta:
             model = Event
+            exclude = ()
 
     class Query(graphene.ObjectType):
         event = graphene.Field(EventType)
@@ -164,6 +166,7 @@ def test_should_node():
     class ReporterNode(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
         @classmethod
@@ -176,6 +179,7 @@ def test_should_node():
     class ArticleNode(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
 
         @classmethod
@@ -246,11 +250,13 @@ def test_should_query_onetoone_fields():
     class FilmNode(DjangoObjectType):
         class Meta:
             model = Film
+            exclude = ()
             interfaces = (Node,)
 
     class FilmDetailsNode(DjangoObjectType):
         class Meta:
             model = FilmDetails
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -346,6 +352,7 @@ def test_should_keep_annotations():
     class ArticleType(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ("lang",)
 
@@ -399,11 +406,13 @@ def test_should_query_node_filtering():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class ArticleType(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ("lang",)
 
@@ -477,6 +486,7 @@ def test_should_query_node_filtering_with_distinct_queryset():
     class FilmType(DjangoObjectType):
         class Meta:
             model = Film
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ("genre",)
 
@@ -521,11 +531,13 @@ def test_should_query_node_multiple_filtering():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class ArticleType(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ("lang", "headline")
 
@@ -606,6 +618,7 @@ def test_should_enforce_first_or_last():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -645,6 +658,7 @@ def test_should_error_if_first_is_greater_than_max():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -688,6 +702,7 @@ def test_should_error_if_last_is_greater_than_max():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -732,6 +747,7 @@ def test_should_query_promise_connectionfields():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -769,6 +785,7 @@ def test_should_query_connectionfields_with_last():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -810,6 +827,7 @@ def test_should_query_connectionfields_with_manager():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -856,11 +874,13 @@ def test_should_query_dataloader_fields():
     class ArticleType(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
 
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             use_connection = True
 
@@ -947,10 +967,12 @@ def test_should_handle_inherited_choices():
     class BaseType(DjangoObjectType):
         class Meta:
             model = BaseModel
+            exclude = ()
 
     class ChildType(DjangoObjectType):
         class Meta:
             model = ChildModel
+            exclude = ()
 
     class Query(graphene.ObjectType):
         base = graphene.Field(BaseType)
@@ -977,12 +999,14 @@ def test_proxy_model_support():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             use_connection = True
 
     class CNNReporterType(DjangoObjectType):
         class Meta:
             model = CNNReporter
+            exclude = ()
             interfaces = (Node,)
             use_connection = True
 
@@ -1056,6 +1080,7 @@ def test_should_resolve_get_queryset_connectionfields():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
         @classmethod
@@ -1089,6 +1114,7 @@ def test_should_preserve_prefetch_related(django_assert_num_queries):
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (graphene.relay.Node,)
 
     class FilmType(DjangoObjectType):
@@ -1096,6 +1122,7 @@ def test_should_preserve_prefetch_related(django_assert_num_queries):
 
         class Meta:
             model = Film
+            exclude = ()
             interfaces = (graphene.relay.Node,)
 
     class Query(graphene.ObjectType):
@@ -1140,6 +1167,7 @@ def test_should_preserve_annotations():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (graphene.relay.Node,)
 
     class FilmType(DjangoObjectType):
@@ -1148,6 +1176,7 @@ def test_should_preserve_annotations():
 
         class Meta:
             model = Film
+            exclude = ()
             interfaces = (graphene.relay.Node,)
 
     class Query(graphene.ObjectType):
@@ -1192,6 +1221,7 @@ def test_should_fields_converted():
     class FilmType(DjangoObjectType):
         class Meta:
             model = Film
+            exclude = ()
             interfaces = (Node,)
             # filter_fields = ("genre",)
             fields = ("jacket", "data", "extra_data")

@@ -43,17 +43,20 @@ if DJANGO_FILTER_INSTALLED:
     class ArticleNode(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ("headline",)
 
     class ReporterNode(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class PetNode(DjangoObjectType):
         class Meta:
             model = Pet
+            exclude = ()
             interfaces = (Node,)
 
 
@@ -191,6 +194,7 @@ def test_filter_filterset_information_on_meta():
     class ReporterFilterNode(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ["first_name", "articles"]
 
@@ -203,12 +207,14 @@ def test_filter_filterset_information_on_meta_related():
     class ReporterFilterNode(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ["first_name", "articles"]
 
     class ArticleFilterNode(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ["headline", "reporter"]
 
@@ -235,6 +241,7 @@ def test_filter_filterset_class_filter_fields_exception():
         class ReporterFilterNode(DjangoObjectType):
             class Meta:
                 model = Reporter
+                exclude = ()
                 interfaces = (Node,)
                 filterset_class = ReporterFilter
                 filter_fields = ["first_name", "articles"]
@@ -249,6 +256,7 @@ def test_filter_filterset_class_information_on_meta():
     class ReporterFilterNode(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filterset_class = ReporterFilter
 
@@ -271,12 +279,14 @@ def test_filter_filterset_class_information_on_meta_related():
     class ReporterFilterNode(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filterset_class = ReporterFilter
 
     class ArticleFilterNode(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
             filterset_class = ArticleFilter
 
@@ -296,6 +306,7 @@ def test_filter_filterset_related_results():
     class ReporterFilterNode(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ["first_name", "articles"]
 
@@ -303,6 +314,7 @@ def test_filter_filterset_related_results():
         class Meta:
             interfaces = (Node,)
             model = Article
+            exclude = ()
             filter_fields = ["headline", "reporter"]
 
     class Query(ObjectType):
@@ -453,6 +465,7 @@ def test_filter_filterset_related_results_with_filter():
     class ReporterFilterNode(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filter_fields = {"first_name": ["icontains"]}
 
@@ -498,6 +511,7 @@ def test_recursive_filter_connection():
 
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(ObjectType):
@@ -523,11 +537,13 @@ def test_should_query_filter_node_limit():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class ArticleType(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ("lang",)
 
@@ -612,6 +628,7 @@ def test_order_by_is_perserved():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ()
 
@@ -678,6 +695,7 @@ def test_annotation_is_preserved():
 
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ()
 
@@ -720,6 +738,7 @@ def test_annotation_with_only():
 
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ()
 
@@ -760,6 +779,7 @@ def test_node_get_queryset_is_called():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
             filter_fields = ()
 
@@ -922,6 +942,7 @@ def test_filter_filterset_based_on_mixin():
     class NewReporterNode(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class NewArticleFilterNode(DjangoObjectType):
@@ -929,6 +950,7 @@ def test_filter_filterset_based_on_mixin():
 
         class Meta:
             model = Article
+            exclude = ()
             interfaces = (Node,)
             filterset_class = NewArticleFilter
 

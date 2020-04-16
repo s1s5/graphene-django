@@ -208,9 +208,9 @@ class DjangoObjectType(ObjectType):
             registry=None,
             skip_registry=False,
             only_fields=(),  # deprecated in favour of `fields`
-            fields=(),
+            fields=None,
             exclude_fields=(),  # deprecated in favour of `exclude`
-            exclude=(),
+            exclude=None,
             filter_fields=None,
             filterset_class=None,
             connection_field_class = None,
@@ -267,9 +267,6 @@ class DjangoObjectType(ObjectType):
                 "Got %s." % type(fields).__name__
             )
 
-        if fields == ALL_FIELDS:
-            fields = None
-
         # Alias exclude_fields -> exclude
         if exclude_fields and exclude:
             raise Exception("Can't set both exclude_fields and exclude")
@@ -285,6 +282,15 @@ class DjangoObjectType(ObjectType):
                 "The `exclude` option must be a list or tuple. Got %s."
                 % type(exclude).__name__
             )
+
+        if fields is None and exclude is None:
+            raise TypeError('must specify fields or exclude {}, {}'.format(fields, exclude))
+
+        if fields == ALL_FIELDS:
+            fields = None
+
+        if exclude is None:
+            exclude = ()
 
         django_fields = yank_fields_from_attrs(
             construct_fields(model, registry, fields, exclude, convert_choices_to_enum),

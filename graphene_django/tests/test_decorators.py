@@ -16,6 +16,7 @@ class TestDecorator:
         class PetType(DjangoObjectType):
             class Meta:
                 model = models.Pet
+                exclude = ()
         self.PetType = PetType
 
 

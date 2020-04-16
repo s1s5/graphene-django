@@ -167,6 +167,7 @@ def test_nested_model():
     class MyFakeModelGrapheneType(DjangoObjectType):
         class Meta:
             model = MyFakeModel
+            exclude = ()
 
     class MyMutation(SerializerMutation):
         class Meta:

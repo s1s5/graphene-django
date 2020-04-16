@@ -35,6 +35,7 @@ def test_should_map_fields_correctly():
     class ReporterType2(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             registry = Registry()
 
     fields = list(ReporterType2._meta.fields.keys())

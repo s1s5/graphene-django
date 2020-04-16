@@ -27,6 +27,7 @@ def test_should_query_field():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -71,6 +72,7 @@ def test_should_query_nested_field():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -136,6 +138,7 @@ def test_should_query_list():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -178,6 +181,7 @@ def test_should_query_connection():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):
@@ -228,6 +232,7 @@ def test_should_query_connectionfilter():
     class ReporterType(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     class Query(graphene.ObjectType):

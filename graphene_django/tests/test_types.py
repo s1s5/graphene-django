@@ -25,6 +25,7 @@ def use_global_registry():
 
         class Meta:
             model = ReporterModel
+            exclude = ()
             interfaces = ()
             use_connection = False
 
@@ -46,6 +47,7 @@ def use_global_registry():
 
         class Meta:
             model = ArticleModel
+            exclude = ()
             interfaces = (Node,)
             connection_class = ArticleConnection
 
@@ -126,6 +128,7 @@ def test_django_objecttype_with_custom_meta():
     class Article(ArticleType):
         class Meta:
             model = ArticleModel
+            exclude = ()
 
     assert isinstance(Article._meta, ArticleTypeOptions)
 
@@ -429,6 +432,7 @@ class TestDjangoObjectType:
         class Pet(DjangoObjectType):
             class Meta:
                 model = PetModel
+                exclude = ()
                 convert_choices_to_enum = False
                 interfaces = ()
 
@@ -459,6 +463,7 @@ class TestDjangoObjectType:
         class Pet(DjangoObjectType):
             class Meta:
                 model = PetModel
+                exclude = ()
                 convert_choices_to_enum = ["kind"]
                 interfaces = ()
 
@@ -494,6 +499,7 @@ class TestDjangoObjectType:
         class Pet(DjangoObjectType):
             class Meta:
                 model = PetModel
+                exclude = ()
                 convert_choices_to_enum = []
                 interfaces = ()
 

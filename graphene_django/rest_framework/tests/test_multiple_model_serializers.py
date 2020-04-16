@@ -29,12 +29,14 @@ class MyFakeParentModel(models.Model):
 class ParentType(DjangoObjectType):
     class Meta:
         model = MyFakeParentModel
+        exclude = ()
         interfaces = (graphene.relay.Node,)
 
 
 class ChildType(DjangoObjectType):
     class Meta:
         model = MyFakeChildModel
+        exclude = ()
         interfaces = (graphene.relay.Node,)
 
 

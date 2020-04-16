@@ -245,6 +245,7 @@ def test_should_manytomany_convert_connectionorlist_list():
     class A(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             use_connection = False
 
     graphene_field = convert_django_field(
@@ -265,6 +266,7 @@ def test_should_manytomany_convert_connectionorlist_connection():
     class A(DjangoObjectType):
         class Meta:
             model = Reporter
+            exclude = ()
             interfaces = (Node,)
 
     graphene_field = convert_django_field(
@@ -280,6 +282,7 @@ def test_should_manytoone_convert_connectionorlist():
     class A(DjangoObjectType):
         class Meta:
             model = Article
+            exclude = ()
             use_connection = False
 
     graphene_field = convert_django_field(Reporter.articles.rel, A._meta.registry)
@@ -297,6 +300,7 @@ def test_should_onetoone_reverse_convert_model():
     class A(DjangoObjectType):
         class Meta:
             model = FilmDetails
+            exclude = ()
 
     graphene_field = convert_django_field(Film.details.related, A._meta.registry)
     assert isinstance(graphene_field, graphene.Dynamic)

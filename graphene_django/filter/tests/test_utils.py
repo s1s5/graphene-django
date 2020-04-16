@@ -30,6 +30,7 @@ class TestMultipleOrderingFilter:
         class PetType(DjangoObjectType):
             class Meta:
                 model = models.Pet
+                exclude = ()
                 filterset_class = MyFilterSet
         self.PetType = PetType
 
