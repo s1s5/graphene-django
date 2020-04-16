@@ -2,14 +2,204 @@ import datetime
 
 import pytest
 
+from graphql_relay import to_global_id
 from graphene import List, NonNull, ObjectType, Schema, String
 
 from ..fields import DjangoListField, DjangoConnectionField
 from ..registry import reset_global_registry
 from ..types import DjangoObjectType
 from .models import Pet as PetModel
+from .models import FilmDetails as FilmDetailsModel
+from .models import Film as FilmModel
 from .models import Article as ArticleModel
 from .models import Reporter as ReporterModel
+
+
+@pytest.mark.django_db
+class TestDefaultDjangoField:
+    def setup_method(self, method):
+        class FilmDetailsType(DjangoObjectType):
+            called = {}
+
+            class Meta:
+                model = FilmDetailsModel
+
+            @classmethod
+            def get_queryset(cls, queryset, info):
+                cls.called['get_queryset'] = cls.called.get('get_queryset', 0) + 1
+                return queryset
+
+            @classmethod
+            def resolve(cls, resolved, parent, info):
+                cls.called['resolve'] = cls.called.get('resolve', 0) + 1
+                return resolved
+
+        class FilmType(DjangoObjectType):
+            called = {}
+
+            class Meta:
+                model = FilmModel
+
+            @classmethod
+            def get_queryset(cls, queryset, info):
+                cls.called['get_queryset'] = cls.called.get('get_queryset', 0) + 1
+                return queryset
+
+            @classmethod
+            def resolve(cls, resolved, parent, info):
+                cls.called['resolve'] = cls.called.get('resolve', 0) + 1
+                return resolved
+
+        class ReporterType(DjangoObjectType):
+            called = {}
+
+            class Meta:
+                model = ReporterModel
+
+            @classmethod
+            def get_queryset(cls, queryset, info):
+                cls.called['get_queryset'] = cls.called.get('get_queryset', 0) + 1
+                return queryset
+
+            @classmethod
+            def resolve(cls, resolved, parent, info):
+                cls.called['resolve'] = cls.called.get('resolve', 0) + 1
+                return resolved
+
+        class Query(ObjectType):
+            film = FilmType.Field()
+            films = FilmType.Connection()
+
+        self.FilmDetailsType = FilmDetailsType
+        self.FilmType = FilmType
+        self.ReporterType = ReporterType
+
+        self.schema = Schema(query=Query)
+        self.film = FilmModel.objects.create()
+        self.reporter = ReporterModel.objects.create()
+        self.film.reporters.add(self.reporter)
+        self.film.save()
+        self.film_details = FilmDetailsModel.objects.create(location='a', film=self.film)
+
+    
+    def teardown_method(self, method):
+        reset_global_registry()
+
+    def test_resolve_called_single(self):
+        gid = to_global_id('FilmType', self.film.pk)
+        query = """
+            query {
+                film(id: "%s") {
+                    id
+                }
+            }
+        """ % (gid, )
+        result = self.schema.execute(query)
+        assert not result.errors
+        assert result.data == {'film': {'id': gid}}
+        assert self.FilmType.called['get_queryset'] == 1
+        assert self.FilmType.called['resolve'] == 1
+
+    def test_resolve_called_multi(self):
+        gid = to_global_id('FilmType', self.film.pk)
+        query = """
+            query {
+                films {
+                    edges {
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+        """
+        result = self.schema.execute(query)
+        assert not result.errors
+        assert result.data == {'films': {'edges': [{'node': {'id': gid}}]}}
+        assert self.FilmType.called['get_queryset'] == 1
+        assert self.FilmType.called.get('resolve', 0) == 0
+
+    def test_resolve_onetoone(self):
+        film_gid = to_global_id('FilmType', self.film.pk)
+        film_details_gid = to_global_id('FilmDetailsType', self.film_details.pk)
+        query = """
+            query {
+                film(id: "%s") {
+                    id
+                    details {
+                        id
+                    }
+                }
+            }
+        """ % (film_gid, )
+        result = self.schema.execute(query)
+        assert not result.errors
+        assert result.data == {'film': {'id': film_gid, 'details': {'id': film_details_gid}}}
+        assert self.FilmType.called.get('get_queryset', 0) == 1
+        assert self.FilmType.called.get('resolve', 0) == 1
+        assert self.FilmDetailsType.called.get('get_queryset', 0) == 0
+        assert self.FilmDetailsType.called.get('resolve', 0) == 1
+        
+    def test_resolve_manytomany(self):
+        film_gid = to_global_id('FilmType', self.film.pk)
+        reporter_gid = to_global_id('ReporterType', self.reporter.pk)
+        query = """
+            query {
+                film(id: "%s") {
+                    id
+                    reporters {
+                        edges {
+                            node {
+                                id
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (film_gid, )
+        result = self.schema.execute(query)
+        assert not result.errors
+        assert result.data == {'film': {'id': film_gid, 'reporters': {'edges': [{'node': {'id': reporter_gid}}]}}}
+        assert self.FilmType.called.get('get_queryset', 0) == 1
+        assert self.FilmType.called.get('resolve', 0) == 1
+        assert self.ReporterType.called.get('get_queryset', 0) == 1
+        assert self.ReporterType.called.get('resolve', 0) == 0
+
+    def test_resolve_onetoone_nest(self):
+        film_gid = to_global_id('FilmType', self.film.pk)
+        film_details_gid = to_global_id('FilmDetailsType', self.film_details.pk)
+        reporter_gid = to_global_id('ReporterType', self.reporter.pk)
+        query = """
+            query {
+                film(id: "%s") {
+                    id
+                    details {
+                        id
+                        film {
+                            id
+                            reporters {
+                                edges {
+                                    node {
+                                        id
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (film_gid, )
+        result = self.schema.execute(query)
+        print(result.data)
+        assert not result.errors
+        assert result.data == {'film': {'id': film_gid, 'details': {'id': film_details_gid, 'film': {'id': film_gid, 'reporters': {'edges': [{'node': {'id': reporter_gid}}]}}}}}
+        assert self.FilmType.called.get('get_queryset', 0) == 1
+        assert self.FilmType.called.get('resolve', 0) == 2
+        assert self.FilmDetailsType.called.get('get_queryset', 0) == 0
+        assert self.FilmDetailsType.called.get('resolve', 0) == 1
+        assert self.ReporterType.called.get('get_queryset', 0) == 1
+        assert self.ReporterType.called.get('resolve', 0) == 0
+
 
 
 @pytest.mark.django_db
@@ -281,3 +471,79 @@ class TestDjangoListField:
         result = schema.execute(query)
         assert not result.errors
         assert result.data == {'pets': {'edges': [{'cursor': hex(pets[2].pk), 'node': {'name': 'name(3)', 'age': 3}}, {'cursor': hex(pets[3].pk), 'node': {'name': 'name(4)', 'age': 4}}]}}
+
+
+@pytest.mark.django_db
+class TestDjangoConnectionField:
+    def setup_method(self, method):
+        class ReporterType(DjangoObjectType):
+            class Meta:
+                model = ReporterModel
+
+        class Query(ObjectType):
+            reporters = ReporterType.Connection()
+
+        self.schema = Schema(query=Query)
+        self.reporters = []
+        n = ['d', 'a', 'b', 'c', 'f', 'a', 'e', 'f', 'g', 'h']
+        for i in range(10):
+            self.reporters.append(ReporterModel.objects.create(first_name=n[i]))
+
+    
+    def teardown_method(self, method):
+        reset_global_registry()
+
+    def test_instance(self):
+        assert isinstance(self.schema._query.reporters, DjangoConnectionField)
+
+    def test_pk(self):
+        before, after = DjangoConnectionField.get_before_and_after_cursor(['pk'], self.reporters[2])
+        assert before == DjangoConnectionField.instance_to_cursor(self.reporters[1])
+        assert after == DjangoConnectionField.instance_to_cursor(self.reporters[3])
+        
+    def test_pk_reverse(self):
+        before, after = DjangoConnectionField.get_before_and_after_cursor(['-pk'], self.reporters[2])
+        assert before == DjangoConnectionField.instance_to_cursor(self.reporters[3])
+        assert after == DjangoConnectionField.instance_to_cursor(self.reporters[1])
+        
+    def test_multiple_0(self):
+        ll = list(sorted(self.reporters, key=lambda x: (x.first_name, x.pk)))
+        for i in range(len(self.reporters)):
+            before, after = DjangoConnectionField.get_before_and_after_cursor(['first_name', 'pk'], self.reporters[i])
+            index = [x.pk for x in ll].index(self.reporters[i].pk)
+            if index == 0:
+                assert before is None
+            else:
+                assert before == DjangoConnectionField.instance_to_cursor(ll[index - 1])
+            if index == len(self.reporters) - 1:
+                assert after is None
+            else:
+                assert after == DjangoConnectionField.instance_to_cursor(ll[index + 1])
+
+    def test_multiple_1(self):
+        ll = list(sorted(self.reporters, key=lambda x: (x.first_name, - x.pk)))
+        for i in range(len(self.reporters)):
+            before, after = DjangoConnectionField.get_before_and_after_cursor(['first_name', '-pk'], self.reporters[i])
+            index = [x.pk for x in ll].index(self.reporters[i].pk)
+            if index == 0:
+                assert before is None
+            else:
+                assert before == DjangoConnectionField.instance_to_cursor(ll[index - 1])
+            if index == len(self.reporters) - 1:
+                assert after is None
+            else:
+                assert after == DjangoConnectionField.instance_to_cursor(ll[index + 1])
+
+    def test_multiple_2(self):
+        ll = list(reversed(sorted(self.reporters, key=lambda x: (x.first_name, x.pk))))
+        for i in range(len(self.reporters)):
+            before, after = DjangoConnectionField.get_before_and_after_cursor(['-first_name', '-pk'], self.reporters[i])
+            index = [x.pk for x in ll].index(self.reporters[i].pk)
+            if index == 0:
+                assert before is None
+            else:
+                assert before == DjangoConnectionField.instance_to_cursor(ll[index - 1])
+            if index == len(self.reporters) - 1:
+                assert after is None
+            else:
+                assert after == DjangoConnectionField.instance_to_cursor(ll[index + 1])

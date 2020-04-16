@@ -150,8 +150,8 @@ class DjangoConnectionField(ConnectionField):
 
     @classmethod
     def get_before_and_after_cursor(cls, order_by, instance):
-        qs_before, qs_after = cls.split_query(instance._meta.model.objects.all(),
-                                              order_by, instance)
+        queryset = instance._meta.model.objects.order_by(*order_by).all()
+        qs_before, qs_after = cls.split_query(queryset, order_by, instance)
 
         if qs_before.exists():
             before = cls.instance_to_cursor(qs_before.reverse()[0])
@@ -191,12 +191,12 @@ class DjangoConnectionField(ConnectionField):
             o = getattr(instance, field)
             if q is None:
                 cq = Q(**{expr: o})
-                q = Q(field=o)
+                q = Q(**{field: o})
                 sumq = cq
             else:
-                cq = q and Q(**{expr: o})
-                q = q and Q(field=o)
-                sumq = sumq or cq
+                cq = q & Q(**{expr: o})
+                q = q & Q(**{field: o})
+                sumq = sumq | cq
         return queryset.filter(sumq), queryset.exclude(sumq).exclude(pk=instance.pk)
 
     @classmethod
