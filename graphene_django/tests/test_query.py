@@ -1,5 +1,7 @@
 import base64
 import datetime
+import uuid
+import os
 
 import pytest
 from django.db import models
@@ -1234,7 +1236,6 @@ def test_should_fields_converted():
                 Q(details__location__contains="Berlin") | Q(genre__in=["ot"])
             ).distinct()
 
-    import os, uuid
     from django.core.files.base import ContentFile
 
     from PIL import Image
