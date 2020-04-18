@@ -80,3 +80,5 @@ Session.vim
 tags
 .tox/
 .pytest_cache/
+
+tmp/
