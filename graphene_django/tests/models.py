@@ -26,9 +26,9 @@ class Film(models.Model):
         default="ot",
     )
     reporters = models.ManyToManyField("Reporter", related_name="films")
-    jacket = models.ImageField()
-    data = models.FileField()
-    extra_data = models.BinaryField()
+    jacket = models.ImageField(upload_to='tmp/film/jacket')
+    data = models.FileField(upload_to='tmp/film/data')
+    extra_data = models.BinaryField(editable=True)
 
 
 class DoeReporterManager(models.Manager):

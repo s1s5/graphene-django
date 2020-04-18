@@ -47,6 +47,15 @@ class BaseDjangoFormMutation(ClientIDMutation):
         abstract = True
 
     @classmethod
+    def __init_subclass_with_meta__(cls, *args, **kwargs):
+        input_fields = kwargs.pop('input_fields')
+        if 'form_prefix' in input_fields:
+            raise Exception('_prefix is reserved by BaseDjangoFormMutation')
+        input_fields['form_prefix'] = graphene.String()
+        super(BaseDjangoFormMutation, cls).__init_subclass_with_meta__(*args, input_fields=input_fields, **kwargs)
+
+
+    @classmethod
     def mutate_and_get_payload(cls, root, info, **input):
         form = cls.get_form(root, info, **input)
 
@@ -57,22 +66,43 @@ class BaseDjangoFormMutation(ClientIDMutation):
             return cls(errors=errors)
 
     @classmethod
+    def get_form_class(cls, root, info, **input):
+        return cls._meta.form_class
+
+    @classmethod
     def get_form(cls, root, info, **input):
+        print('input->', input)
         form_kwargs = cls.get_form_kwargs(root, info, **input)
-        return cls._meta.form_class(**form_kwargs)
+        form_class = cls.get_form_class(root, info, **input)
+        print('form_kwargs->', form_kwargs)
+        for name, field in form_class.base_fields.items():
+            try:
+                print(name, '=>')
+                name = '{}-{}'.format(form_kwargs['prefix'], name) if form_kwargs.get('prefix') else name
+                print(name, form_kwargs['data'])
+                if name not in form_kwargs['data']:
+                    continue
+                if isinstance(field, forms.ModelMultipleChoiceField):
+                    for i, gid in enumerate(form_kwargs['data'][name]):
+                        _, pk = from_global_id(gid)
+                        form_kwargs['data'][name][i] = pk
+                elif isinstance(field, forms.ModelChoiceField):
+                    _, pk = from_global_id(form_kwargs['data'][name])
+                    form_kwargs['data'][name] = pk
+            except Exception:
+                continue
+        print('after converted form_kwargs->', form_kwargs)
+        return form_class(**form_kwargs)
 
     @classmethod
     def get_form_kwargs(cls, root, info, **input):
-        if info and info.path:
-            prefix = info.path[0]
-            kwargs = {
-                "prefix": prefix,
-                "data": {'{}-{}'.format(prefix, key): value for key, value in input.items()},
-            }
-        else:
-            kwargs = {
-                "data": input
-            }
+        prefix = input.pop('form_prefix', None)
+        kwargs = {
+            "prefix": prefix,
+            "data": input,
+        }
+        if info and hasattr(info.context, 'FILES'):
+            kwargs["files"] = info.context.FILES
 
         pk = input.pop("id", None)
         if pk:
@@ -82,9 +112,6 @@ class BaseDjangoFormMutation(ClientIDMutation):
                 raise forms.ValidationError('invalid id format')
             instance = cls._meta.model._default_manager.get(pk=pk)
             kwargs["instance"] = instance
-
-        if info and hasattr(info.context, 'FILES'):
-            kwargs["files"] = info.context.FILES
 
         return kwargs
 
@@ -286,7 +313,6 @@ class DjangoDeleteModelMutation(ClientIDMutation):
         _meta.model = model
         _meta.fields = yank_fields_from_attrs(output_fields, _as=Field)
 
-        print(input_fields)
         super(DjangoDeleteModelMutation, cls).__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
         )
