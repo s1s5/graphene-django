@@ -128,4 +128,5 @@ py.test -s -v graphene_django/tests/test_query.py
 # TODO
 - inlineformset
 - filefield clearable
-
+- subscのvariables指定がうまくいくかとか
+- async websocket consumersのcontext

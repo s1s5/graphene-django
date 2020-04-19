@@ -113,7 +113,7 @@ class AsyncWebsocketConsumer(AsyncConsumer):
             result = self.schema.execute(
                 payload["query"],
                 operation_name=payload.get("operationName"),
-                variables_values=payload.get("variables"),
+                variable_values=payload.get("variables"),
                 context_value=context,
                 root_value=None,
                 allow_subscriptions=True,
