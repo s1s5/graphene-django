@@ -18,13 +18,14 @@ logger = logging.getLogger(__name__)
 
 class AttrDict:
     def __init__(self, data):
-        self.data = data or {}
+        self.__dict__ = data
+    #     self.data = data or {}
 
-    def __getattr__(self, item):
-        return self.get(item)
+    # def __getattr__(self, item):
+    #     return self.get(item)
 
-    def get(self, item):
-        return self.data.get(item)
+    # def get(self, item):
+    #     return self.data.get(item)
 
 
 class AsyncConsumer:
