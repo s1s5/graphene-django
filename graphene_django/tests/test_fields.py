@@ -193,7 +193,7 @@ class TestDefaultDjangoField:
             }
         """ % (film_gid, )
         result = self.schema.execute(query)
-        print(result.data)
+        # print(result.data)
         assert not result.errors
         assert result.data == {'film': {'id': film_gid, 'details': {'id': film_details_gid, 'film': {'id': film_gid, 'reporters': {'edges': [{'node': {'id': reporter_gid}}]}}}}}
         assert self.FilmType.called.get('get_queryset', 0) == 1

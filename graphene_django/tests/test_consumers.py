@@ -39,8 +39,6 @@ def test_async_consumer():
     ))
     loop.close()
 
-    print(receive, send)
-
 
 @pytest.fixture()
 async def communicator():

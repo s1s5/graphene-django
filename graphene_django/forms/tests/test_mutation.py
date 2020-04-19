@@ -812,8 +812,8 @@ input PetMutationInput {
             variable_values={"pk": to_global_id('PetType', pet.pk), 'name': 'new-name'},
         )
 
-        print(result.errors)
-        print(result.data)
+        # print(result.errors)
+        # print(result.data)
         assert not result.errors
         assert result.data == {'petMutation': {'errors': [], 'pet': {'id': to_global_id('PetType', pet.pk), 'name': 'new-name', 'age': 0}}}
         
@@ -855,8 +855,8 @@ input FilmDetailsMutationInput {
             """,
             variable_values={"pk": to_global_id('FilmDetailsType', film_details.pk)}
         )
-        print(result.errors)
-        print(result.data)
+        # print(result.errors)
+        # print(result.data)
         self.assertIs(result.errors, None)
         data = result.data['filmdetailsMutation']
         self.assertEqual(data['errors'], [])
@@ -941,7 +941,7 @@ input FilmDetailsMutationInput {
     def test_file(self):
         # TODO: clear file
         schema_str = str(Schema(types=[self.schema.get_type('FilmMutationInput')]))
-        print(schema_str)
+        # print(schema_str)
         self.assertEqual(schema_str, '''schema {
 
 }
@@ -1051,8 +1051,8 @@ scalar Upload
             }},
         )
 
-        print(result.errors)
-        print(result.data)
+        # print(result.errors)
+        # print(result.data)
         self.assertIs(result.errors, None)
         self.assertEqual(result.data['filmMutation'],
                          {'errors': [], 'film': {

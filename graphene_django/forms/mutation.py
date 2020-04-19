@@ -81,12 +81,12 @@ class BaseDjangoFormMutation(ClientIDMutation):
                 name = '{}-{}'.format(form_kwargs['prefix'], name) if form_kwargs.get('prefix') else name
                 if name not in form_kwargs['data']:
                     continue
-                # print(name, field, isinstance(field, forms.ModelMultipleChoiceField))
+
                 if isinstance(field, forms.ModelMultipleChoiceField):
                     model_type = registry.get_type_for_model(field.queryset.model)
                     for i, gid in enumerate(form_kwargs['data'][name]):
                         type_name, pk = from_global_id(gid)
-                        print(type_name, model_type._meta.name)
+
                         if type_name == model_type._meta.name:
                             form_kwargs['data'][name][i] = pk
                 elif isinstance(field, forms.ModelChoiceField):

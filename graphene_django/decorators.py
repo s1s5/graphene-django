@@ -16,7 +16,6 @@ def query_decorator(wrapper):
 
 def node_decorator(wrapper):
     def f(klass):
-        print(klass, DjangoObjectType)
         assert issubclass(klass, DjangoObjectType)
         setattr(klass, 'get_queryset', wrapper(klass.get_queryset))
         setattr(klass, 'resolve', wrapper(klass.resolve))
