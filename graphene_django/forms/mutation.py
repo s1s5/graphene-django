@@ -103,11 +103,21 @@ class BaseDjangoFormMutation(ClientIDMutation):
     def get_form_kwargs(cls, root, info, **input):
         prefix = input.pop('form_prefix', None)
         kwargs = {
-            "prefix": prefix,
             "data": input,
         }
         if info and hasattr(info.context, 'FILES'):
-            kwargs["files"] = info.context.FILES
+            if prefix:
+                kwargs["files"] = MultiValueDict()
+                for key in info.context.FILES.keys():
+                    if not key.startswith('{}-'.format(prefix)):
+                        continue
+                    real_key = key[len(prefix) + 1:]
+                    try:
+                        kwargs["files"][real_key] = info.context.FILES.getlist(key)
+                    except AttributeError:
+                        kwargs["files"][real_key] = info.context.FILES.get(key)
+            else:
+                kwargs["files"] = info.context.FILES
 
         pk = input.pop("id", None)
         if pk:

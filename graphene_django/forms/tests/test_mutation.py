@@ -710,6 +710,122 @@ scalar Upload
 
         film.data.delete()
         film.jacket.delete()
+
+    def test_many_prefix(self):
+        schema_str = str(Schema(types=[self.schema.get_type('FilmMutationInput')]))
+        # print(schema_str)
+        self.assertEqual(schema_str, '''schema {
+
+}
+
+input FilmMutationInput {
+  genre: String!
+  reporters: [ID]!
+  jacket: Upload
+  data: Upload!
+  extraData: String!
+  formPrefix: String
+  clientMutationId: String
+}
+
+scalar Upload
+''')
+
+        reporter = Reporter.objects.create(first_name="John")
+
+        fio = io.BytesIO()
+        fio.write(b'hello world')
+        fio.seek(0)
+
+        bio = io.BytesIO()
+        img = Image.new('RGB', (16, 8))
+        img.save(bio, format='png')
+        bio.seek(0)
+
+        txt_filename = '{}.txt'.format(uuid.uuid4().hex)
+        png_filename = '{}.png'.format(uuid.uuid4().hex)
+
+        prefix = 'hello'
+
+        class CTX: pass
+        context = CTX()
+        context.FILES = {
+            '{}-jacket'.format(prefix): SimpleUploadedFile(png_filename, bio.getvalue()),
+            '{}-data'.format(prefix): SimpleUploadedFile(txt_filename, fio.getvalue()),
+        }
+
+        result = self.schema.execute(
+            """ mutation AnyNameHere($input: FilmMutationInput!) {
+                filmMutation(input: $input) {
+                    errors {
+                        field
+                        messages
+                    }
+                    film {
+                        genre
+                        reporters {
+                            edges {
+                                node {
+                                    id
+                                    firstName
+                                }
+                            }
+                        }
+                        jacket {
+                            name
+                            size
+                            url
+                            width
+                            height
+                        }
+                        data {
+                            name
+                            size
+                            url
+                            data
+                        }
+                        extraData
+                    }
+                }
+            }
+            """,
+            variable_values={"input": {
+                "genre": "do",
+                "reporters": [to_global_id('ReporterType', reporter.pk)],
+                "jacket": "",
+                "data": "",
+                "extraData": "Zm9v",
+                "formPrefix": prefix,
+            }},
+            context_value=context,
+        )
+        # print(result.errors)
+        # print(result.data)
+        self.assertIs(result.errors, None)
+        data = result.data['filmMutation']
+        self.assertEqual(data['errors'], [])
+        self.assertEqual(data["film"],
+                         {'data': {'data': 'aGVsbG8gd29ybGQ=',
+                                   'name': 'tmp/film/data/{}'.format(txt_filename),
+                                   'size': 11,
+                                   'url': 'tmp/film/data/{}'.format(txt_filename)},
+                          'extraData': 'Zm9v',
+                          'genre': 'DO',
+                          'jacket': {'height': 8,
+                                     'name': 'tmp/film/jacket/{}'.format(png_filename),
+                                     'size': 71,
+                                     'url': 'tmp/film/jacket/{}'.format(png_filename),
+                                     'width': 16},
+                          'reporters': {'edges': [{'node': {'firstName': 'John',
+                                                            'id': to_global_id('ReporterType', reporter.pk)}}]}})
+        self.assertEqual(Film.objects.count(), 1)
+        film = Film.objects.get()
+        self.assertEqual(film.reporters.all().count(), 1)
+        self.assertEqual(film.reporters.all()[0], reporter)
+        self.assertEqual(film.extra_data, b'foo')
+
+        film.data.delete()
+        film.jacket.delete()
     
 
 @pytest.mark.django_db
