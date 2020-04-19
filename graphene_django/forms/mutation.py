@@ -25,7 +25,7 @@ from .converter import convert_form_field
 import natsort
 
 
-def fields_for_form(form, only_fields, exclude_fields, options={}):
+def fields_for_form(form, only_fields, exclude_fields, options={}, is_model_field=False):
     fields = OrderedDict()
     for name, field in form.fields.items():
         is_not_in_only = only_fields and name not in only_fields
@@ -71,27 +71,32 @@ class BaseDjangoFormMutation(ClientIDMutation):
 
     @classmethod
     def get_form(cls, root, info, **input):
-        print('input->', input)
+        registry = get_global_registry()
+
         form_kwargs = cls.get_form_kwargs(root, info, **input)
         form_class = cls.get_form_class(root, info, **input)
-        print('form_kwargs->', form_kwargs)
+
         for name, field in form_class.base_fields.items():
             try:
-                print(name, '=>')
                 name = '{}-{}'.format(form_kwargs['prefix'], name) if form_kwargs.get('prefix') else name
-                print(name, form_kwargs['data'])
                 if name not in form_kwargs['data']:
                     continue
+                # print(name, field, isinstance(field, forms.ModelMultipleChoiceField))
                 if isinstance(field, forms.ModelMultipleChoiceField):
+                    model_type = registry.get_type_for_model(field.queryset.model)
                     for i, gid in enumerate(form_kwargs['data'][name]):
-                        _, pk = from_global_id(gid)
-                        form_kwargs['data'][name][i] = pk
+                        type_name, pk = from_global_id(gid)
+                        print(type_name, model_type._meta.name)
+                        if type_name == model_type._meta.name:
+                            form_kwargs['data'][name][i] = pk
                 elif isinstance(field, forms.ModelChoiceField):
-                    _, pk = from_global_id(form_kwargs['data'][name])
-                    form_kwargs['data'][name] = pk
+                    model_type = registry.get_type_for_model(field.queryset.model)
+                    type_name, pk = from_global_id(form_kwargs['data'][name])
+                    if type_name == model_type._meta.name:
+                        form_kwargs['data'][name] = pk
             except Exception:
                 continue
-        print('after converted form_kwargs->', form_kwargs)
+
         return form_class(**form_kwargs)
 
     @classmethod
@@ -222,7 +227,7 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
             fields_for_form_options['force_required_false'] = False
 
         form = form_class()
-        input_fields = fields_for_form(form, only_fields, exclude_fields, fields_for_form_options)
+        input_fields = fields_for_form(form, only_fields, exclude_fields, fields_for_form_options, is_model_field=True)
         if cls.inject_id:
             input_fields["id"] = graphene.ID(required=True)
 
@@ -277,8 +282,7 @@ class DjangoUpdateModelMutation(DjangoCreateModelMutation):
         abstract = True
 
     @classmethod
-    def get_form(cls, root, info, **input):
-        form_kwargs = cls.get_form_kwargs(root, info, **input)
+    def get_form_class(cls, root, info, **input):
         if (not cls._meta._form_class) and (not cls._meta._disable_partial_update):
             fields = set(input.keys())
             fields.remove('id')
@@ -286,8 +290,8 @@ class DjangoUpdateModelMutation(DjangoCreateModelMutation):
             if not fields.difference(set(cls._meta._input_fields.keys())):
                 form_class = modelform_factory(
                     cls._meta.model, fields=tuple(fields), exclude=(), **cls._meta._modelform_factory_options)
-                return form_class(**form_kwargs)
-        return cls._meta.form_class(**form_kwargs)
+                return form_class
+        return cls._meta.form_class
 
 
 

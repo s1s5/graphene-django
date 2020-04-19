@@ -9,6 +9,8 @@ CHOICES = ((1, "this"), (2, _("that")))
 class Pet(models.Model):
     name = models.CharField(max_length=30)
     age = models.PositiveIntegerField()
+    reporter = models.ForeignKey(
+        'Reporter', on_delete=models.CASCADE, related_name='+', blank=True, null=True)
 
 
 class FilmDetails(models.Model):
@@ -26,7 +28,7 @@ class Film(models.Model):
         default="ot",
     )
     reporters = models.ManyToManyField("Reporter", related_name="films")
-    jacket = models.ImageField(upload_to='tmp/film/jacket')
+    jacket = models.ImageField(upload_to='tmp/film/jacket', blank=True, null=True)
     data = models.FileField(upload_to='tmp/film/data')
     extra_data = models.BinaryField(editable=True)
 

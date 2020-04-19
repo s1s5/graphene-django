@@ -1,11 +1,15 @@
 import pytest
 import io
+import os
 from PIL import Image
 import uuid
 
 from django import forms
 from django.test import TestCase
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.base import ContentFile
+
 from py.test import raises
 
 from graphene import ObjectType, Schema, String, Field
@@ -259,41 +263,6 @@ class ModelFormMutationTests(TestCase):
         self.assertIn("id", PetMutation.Input._meta.fields)
         self.assertIn("name", PetMutation.Input._meta.fields)
         self.assertNotIn("age", PetMutation.Input._meta.fields)
-
-    def test_default_update_input_meta_fields_auto_gen_execute(self):
-        pet = Pet.objects.create(name='name', age=0)
-
-        class PetMutation(DjangoUpdateModelMutation):
-            class Meta:
-                model = Pet
-                fields = ('name', 'age')
-
-        class Mutation(ObjectType):
-            pet_update = PetMutation.Field()
-
-        schema = Schema(mutation=Mutation)
-        result = schema.execute(
-            """ mutation PetMutation($pk: ID!, $name: String!) {
-                petUpdate(input: { id: $pk, name: $name }) {
-                    errors {
-                        field
-                        messages
-                    }
-                    pet {
-                        id
-                        name
-                        age
-                    }
-                }
-            }
-            """,
-            variable_values={"pk": to_global_id('PetType', 1), 'name': 'new-name'},
-        )
-
-        print(result.errors)
-        print(result.data)
-        assert not result.errors
-        assert result.data == {'petUpdate': {'errors': [], 'pet': {'id': 'UGV0VHlwZTox', 'name': 'new-name', 'age': 0}}}
 
 
     def test_default_update_input_meta_fields_auto_gen_execute_error(self):
@@ -550,6 +519,7 @@ class CreateModelMutationTests(TestCase):
 input PetMutationInput {
   name: String!
   age: Int!
+  formPrefix: String
   clientMutationId: String
 }
 ''')
@@ -588,6 +558,7 @@ input PetMutationInput {
 input FilmDetailsMutationInput {
   location: String!
   film: ID!
+  formPrefix: String
   clientMutationId: String
 }
 ''')
@@ -637,7 +608,7 @@ input FilmDetailsMutationInput {
 input FilmMutationInput {
   genre: String!
   reporters: [ID]!
-  jacket: Upload!
+  jacket: Upload
   data: Upload!
   extraData: String!
   formPrefix: String
@@ -661,16 +632,9 @@ scalar Upload
         txt_filename = '{}.txt'.format(uuid.uuid4().hex)
         png_filename = '{}.png'.format(uuid.uuid4().hex)
         
-        class CTX:
-            def __init__(self, **kwargs):
-                for key, value in kwargs.items():
-                    setattr(self, key, value)
-
-        from django.core.files.uploadedfile import SimpleUploadedFile
+        class CTX: pass
         context = CTX()
         context.FILES = {
-            # 'jacket': CTX(name='img.png', size=len(bio.getvalue()), read=lambda : bio.getvalue(), _committed=True),
-            # 'data': CTX(name='hello.txt', size=len(fio.getvalue()), read=lambda : fio.getvalue(), _committed=True),
             'jacket': SimpleUploadedFile(png_filename, bio.getvalue()),
             'data': SimpleUploadedFile(txt_filename, fio.getvalue()),
         }
@@ -719,8 +683,8 @@ scalar Upload
             }},
             context_value=context,
         )
-        print(result.errors)
-        print(result.data)
+        # print(result.errors)
+        # print(result.data)
         self.assertIs(result.errors, None)
         data = result.data['filmMutation']
         self.assertEqual(data['errors'], [])
@@ -742,8 +706,360 @@ scalar Upload
         film = Film.objects.get()
         self.assertEqual(film.reporters.all().count(), 1)
         self.assertEqual(film.reporters.all()[0], reporter)
+        self.assertEqual(film.extra_data, b'foo')
 
+        film.data.delete()
+        film.jacket.delete()
     
+
+@pytest.mark.django_db
+class UpdateModelMutationTests(TestCase):
+    def setup_method(self, method):
+        class PetType(DjangoObjectType):
+            class Meta:
+                model = Pet
+                fields = "__all__"
+
+        class FilmType(DjangoObjectType):
+            class Meta:
+                model = Film
+                fields = "__all__"
+
+        class FilmDetailsType(DjangoObjectType):
+            class Meta:
+                model = FilmDetails
+                fields = "__all__"
+
+        class ReporterType(DjangoObjectType):
+            class Meta:
+                model = Reporter
+                fields = "__all__"
+
+        class ArticleType(DjangoObjectType):
+            class Meta:
+                model = Article
+                fields = "__all__"
+
+        class PetMutation(DjangoUpdateModelMutation):
+            class Meta:
+                model = Pet
+                fields = ('name', 'age')
+
+        class FilmMutation(DjangoUpdateModelMutation):
+            class Meta:
+                model = Film
+                fields = ('genre', 'reporters', 'jacket', 'data', 'extra_data')
+
+        class FilmDetailsMutation(DjangoUpdateModelMutation):
+            class Meta:
+                model = FilmDetails
+                fields = ('location', 'film')
+
+        class ReporterMutation(DjangoUpdateModelMutation):
+            class Meta:
+                model = Reporter
+                fields = ('first_name', 'last_name', 'email', 'pets', 'a_choice', )
+
+        class ArticleMutation(DjangoUpdateModelMutation):
+            class Meta:
+                model = Article
+                fields = ('headline', 'pub_date', 'pub_date_time', 'reporter', 'editor', 'lang', 'importance', )
+
+
+        class Mutation(ObjectType):
+            pet_mutation = PetMutation.Field()
+            film_mutation = FilmMutation.Field()
+            filmdetails_mutation = FilmDetailsMutation.Field()
+            reporter_mutation = ReporterMutation.Field()
+            article_mutation = ArticleMutation.Field()
+
+        self.schema = Schema(mutation=Mutation)
+
+    def teardown_method(self, method):
+        reset_global_registry()
+
+    def test_basic(self):
+        schema_str = str(Schema(types=[self.schema.get_type('PetMutationInput')]))
+        # print(schema_str)
+        self.assertEqual(schema_str, '''schema {
+
+}
+
+input PetMutationInput {
+  name: String
+  age: Int
+  id: ID!
+  formPrefix: String
+  clientMutationId: String
+}
+''')
+        pet = Pet.objects.create(name='name', age=0)
+        result = self.schema.execute(
+            """ mutation($pk: ID!, $name: String!) {
+                petMutation(input: { id: $pk, name: $name }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        id
+                        name
+                        age
+                    }
+                }
+            }
+            """,
+            variable_values={"pk": to_global_id('PetType', pet.pk), 'name': 'new-name'},
+        )
+
+        print(result.errors)
+        print(result.data)
+        assert not result.errors
+        assert result.data == {'petMutation': {'errors': [], 'pet': {'id': to_global_id('PetType', pet.pk), 'name': 'new-name', 'age': 0}}}
+        
+
+    def test_one_to_one(self):
+        schema_str = str(Schema(types=[self.schema.get_type('FilmDetailsMutationInput')]))
+        self.assertEqual(schema_str, '''schema {
+
+}
+
+input FilmDetailsMutationInput {
+  location: String
+  film: ID
+  id: ID!
+  formPrefix: String
+  clientMutationId: String
+}
+''')
+
+        film = Film.objects.create(genre='do')
+        film_details = FilmDetails.objects.create(location='Tokyo', film=film)
+        
+        result = self.schema.execute(
+            """ mutation($pk: ID!) {
+                filmdetailsMutation(input: { id: $pk, location: "tokyo" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    filmDetails {
+                        location
+                        film {
+                            id
+                            genre
+                        }
+                    }
+                }
+            }
+            """,
+            variable_values={"pk": to_global_id('FilmDetailsType', film_details.pk)}
+        )
+        print(result.errors)
+        print(result.data)
+        self.assertIs(result.errors, None)
+        data = result.data['filmdetailsMutation']
+        self.assertEqual(data['errors'], [])
+        self.assertEqual(data["filmDetails"], {
+            'location': 'tokyo',
+            'film': {'id': to_global_id('FilmType', film.pk), 'genre': 'DO'}})
+
+        self.assertEqual(FilmDetails.objects.count(), 1)
+        film_details = FilmDetails.objects.get()
+        self.assertEqual(film_details.location, "tokyo")
+        self.assertEqual(film_details.film.pk, film.pk)
+
+    def test_one_to_one_update(self):
+        film0 = Film.objects.create(genre='do')
+        film1 = Film.objects.create(genre='ot')
+        film_details = FilmDetails.objects.create(location='Tokyo', film=film0)
+        
+        result = self.schema.execute(
+            """ mutation($pk: ID!, $film: ID) {
+                filmdetailsMutation(input: { id: $pk, location: "tokyo", film: $film }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    filmDetails {
+                        location
+                        film {
+                            id
+                            genre
+                        }
+                    }
+                }
+            }
+            """,
+            variable_values={
+                "pk": to_global_id('FilmDetailsType', film_details.pk),
+                "film": to_global_id('FilmType', film1.pk),
+            }
+        )
+        # print(result.errors)
+        # print(result.data)
+        self.assertIs(result.errors, None)
+        data = result.data['filmdetailsMutation']
+        self.assertEqual(data['errors'], [])
+        self.assertEqual(data["filmDetails"], {
+            'location': 'tokyo',
+            'film': {'id': to_global_id('FilmType', film1.pk), 'genre': 'OT'}})
+
+        self.assertEqual(FilmDetails.objects.count(), 1)
+        film_details = FilmDetails.objects.get()
+        self.assertEqual(film_details.location, "tokyo")
+        self.assertEqual(film_details.film.pk, film1.pk)
+
+    def test_one_to_one_clear(self):
+        film = Film.objects.create(genre='do')
+        film_details = FilmDetails.objects.create(location='Tokyo', film=film)
+        
+        result = self.schema.execute(
+            """ mutation($pk: ID!, $film: ID) {
+                filmdetailsMutation(input: { id: $pk, film: $film }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    filmDetails {
+                        location
+                        film {
+                            id
+                            genre
+                        }
+                    }
+                }
+            }
+            """,
+            variable_values={"pk": to_global_id('FilmDetailsType', film_details.pk), "film": None}
+        )
+        self.assertIs(result.errors, None)
+        data = result.data['filmdetailsMutation']
+        self.assertEqual(data['errors'], [{'field': 'film', 'messages': ['This field is required.']}])
+
+
+    def test_file(self):
+        # TODO: clear file
+        schema_str = str(Schema(types=[self.schema.get_type('FilmMutationInput')]))
+        print(schema_str)
+        self.assertEqual(schema_str, '''schema {
+
+}
+
+input FilmMutationInput {
+  genre: String
+  reporters: [ID]
+  jacket: Upload
+  data: Upload
+  extraData: String
+  id: ID!
+  formPrefix: String
+  clientMutationId: String
+}
+
+scalar Upload
+''')
+
+        txt_filename = '{}.txt'.format(uuid.uuid4().hex)
+        png_filename = '{}.png'.format(uuid.uuid4().hex)
+
+        try:
+            f = Film.objects.create()
+
+            f.data.save(txt_filename, ContentFile(b'foo'), save=True)
+
+            bio = io.BytesIO()
+            img = Image.new('RGB', (16, 8))
+            img.save(bio, format='png')
+            f.jacket.save(png_filename, ContentFile(bio.getvalue()), save=True)
+
+            f.extra_data = b'foo'
+            f.save()
+
+            result = self.schema.execute(
+                """ mutation($input: FilmMutationInput!) {
+                    filmMutation(input: $input) {
+                        errors {
+                            field
+                            messages
+                        }
+                        film {
+                            jacket {
+                                name
+                            }
+                            data {
+                                name
+                            }
+                        }
+                    }
+                }
+                """,
+                variable_values={"input": {
+                    "id": to_global_id('FilmType', f.pk),
+                    "jacket": None,
+                }},
+            )
+            # print(result.errors)
+            # print(result.data)
+            self.assertIs(result.errors, None)
+            self.assertEqual(result.data['filmMutation'],
+                             {'errors': [], 'film': {
+                                 'jacket': {'name': 'tmp/film/jacket/{}'.format(png_filename)},
+                                 'data': {'name': 'tmp/film/data/{}'.format(txt_filename)}}})
+            f.data.delete()
+            f.jacket.delete()
+        finally:
+            txt_filename = os.path.join('tmp/film/data', txt_filename)
+            png_filename = os.path.join('tmp/film/jacket', png_filename)
+            if os.path.exists(txt_filename):
+                os.remove(txt_filename)
+            if os.path.exists(png_filename):
+                os.remove(png_filename)
+        
+
+    def test_many_to_many(self):
+        f = Film.objects.create()
+        reporter0 = Reporter.objects.create(first_name="John")
+        reporter1 = Reporter.objects.create(first_name="Dan")
+        f.reporters.add(reporter0)
+        f.save()
+        
+
+        result = self.schema.execute(
+            """ mutation($input: FilmMutationInput!) {
+                filmMutation(input: $input) {
+                    errors {
+                        field
+                        messages
+                    }
+                    film {
+                        reporters {
+                            edges {
+                                node {
+                                    id
+                                    firstName
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            """,
+            variable_values={"input": {
+                "id": to_global_id('FilmType', f.pk),
+                "reporters": [to_global_id('ReporterType', reporter1.pk)],
+            }},
+        )
+
+        print(result.errors)
+        print(result.data)
+        self.assertIs(result.errors, None)
+        self.assertEqual(result.data['filmMutation'],
+                         {'errors': [], 'film': {
+                             'reporters': {'edges': [{'node': {
+                                 'id': to_global_id('ReporterType', reporter1.pk),
+                                 'firstName': 'Dan'}}]}}})
+
 
 @pytest.mark.django_db
 class DeleteModelMutationTests(TestCase):

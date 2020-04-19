@@ -1257,6 +1257,9 @@ def test_should_fields_converted():
         f.extra_data = b'foo'
         f.save()
 
+        txt_filename = os.path.join('tmp/film/data', txt_filename)
+        png_filename = os.path.join('tmp/film/jacket', png_filename)
+
         fd = FilmDetails.objects.create(location="Berlin", film=f)
 
         schema = graphene.Schema(query=Query)
