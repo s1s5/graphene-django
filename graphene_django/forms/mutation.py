@@ -102,6 +102,7 @@ class BaseDjangoFormMutation(ClientIDMutation):
     @classmethod
     def get_form_kwargs(cls, root, info, **input):
         prefix = input.pop('form_prefix', None)
+
         kwargs = {
             "data": input,
         }
@@ -112,8 +113,9 @@ class BaseDjangoFormMutation(ClientIDMutation):
                     if not key.startswith('{}-'.format(prefix)):
                         continue
                     real_key = key[len(prefix) + 1:]
+
                     try:
-                        kwargs["files"][real_key] = info.context.FILES.getlist(key)
+                        kwargs["files"].setlist(real_key, info.context.FILES.getlist(key))
                     except AttributeError:
                         kwargs["files"][real_key] = info.context.FILES.get(key)
             else:
