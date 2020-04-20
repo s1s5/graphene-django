@@ -20,7 +20,8 @@ from ..fields import DjangoConnectionField
 from ..registry import reset_global_registry
 from ..types import DjangoObjectType
 from ..settings import graphene_settings
-from .models import Article, CNNReporter, Reporter, Film, FilmDetails
+from .models import Article, CNNReporter, Reporter, Film, FilmDetails, Pet
+from ..debug.types import DjangoDebug
 
 pytestmark = pytest.mark.django_db
 
@@ -1319,3 +1320,377 @@ def test_should_fields_converted():
             os.remove(txt_filename)
         if os.path.exists(png_filename):
             os.remove(png_filename)
+
+
+def test_queryset_optimize_foreign_key():
+    from django.conf import settings
+    from django.db import connection, reset_queries
+    settings.DEBUG = True
+
+    class FilmType(DjangoObjectType):
+        class Meta:
+            model = Film
+            exclude = ()
+
+    class PetType(DjangoObjectType):
+        class Meta:
+            model = Pet
+            exclude = ()
+
+    class Query(graphene.ObjectType):
+        films = FilmType.Connection()
+        pets = PetType.Connection()
+        debug = graphene.Field(DjangoDebug, name="_debug")
+
+    pets, films = [Pet.objects.create(age=0), Pet.objects.create(age=1)], [Film.objects.create(), Film.objects.create(), Film.objects.create(), Film.objects.create()]
+    for i in range(2):
+        for j in range(2):
+            films[2 * i + j].pet = pets[i]
+            films[2 * i + j].save()
+
+    schema = graphene.Schema(query=Query)
+
+    query = """
+        query {
+            films {
+                edges {
+                    node {
+                        id
+                        pet {
+                            id
+                        }
+                    }
+                }
+            }
+            _debug {
+                sql {
+                    rawSql
+                }
+            }
+        }
+    """
+    reset_queries()
+    result = schema.execute(query)
+
+    assert not result.errors
+    assert len(connection.queries) == 1
+
+    query = """
+        query {
+            pets {
+                edges {
+                    node {
+                        id
+                        films {
+                            edges {
+                                node {
+                                    id
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _debug {
+                sql {
+                    rawSql
+                }
+            }
+        }
+    """
+
+    reset_queries()
+    result = schema.execute(query)
+    # print(result.errors)
+    # print(len(connection.queries))
+
+    assert not result.errors
+    assert len(connection.queries) == 2
+
+
+def test_queryset_optimize_one_to_one():
+    from django.conf import settings
+    from django.db import connection, reset_queries
+    settings.DEBUG = True
+
+    class FilmType(DjangoObjectType):
+        class Meta:
+            model = Film
+            exclude = ()
+
+    class FilmDetailsType(DjangoObjectType):
+        class Meta:
+            model = FilmDetails
+            exclude = ()
+
+    class Query(graphene.ObjectType):
+        films = FilmType.Connection()
+        filmdetails_list = FilmDetailsType.Connection()
+        debug = graphene.Field(DjangoDebug, name="_debug")
+
+    for i in range(10):
+        film = Film.objects.create()
+        film_details = FilmDetails.objects.create(film=film)
+
+    schema = graphene.Schema(query=Query)
+
+    query = """
+        query {
+            films {
+                edges {
+                    node {
+                        id
+                        details {
+                            id
+                        }
+                    }
+                }
+            }
+            _debug {
+                sql {
+                    rawSql
+                }
+            }
+        }
+    """
+    reset_queries()
+    result = schema.execute(query)
+
+    assert not result.errors
+    assert len(connection.queries) == 1
+
+    query = """
+        query {
+            filmdetailsList {
+                edges {
+                    node {
+                        id
+                        film {
+                            id
+                        }
+                    }
+                }
+            }
+            _debug {
+                sql {
+                    rawSql
+                }
+            }
+        }
+    """
+
+    reset_queries()
+    result = schema.execute(query)
+    assert not result.errors
+    assert len(connection.queries) == 1
+
+
+def test_queryset_optimize_many_to_many():
+    from django.conf import settings
+    from django.db import connection, reset_queries
+    settings.DEBUG = True
+
+    class FilmType(DjangoObjectType):
+        class Meta:
+            model = Film
+            exclude = ()
+
+    class ReporterType(DjangoObjectType):
+        class Meta:
+            model = Reporter
+            exclude = ()
+
+    class Query(graphene.ObjectType):
+        films = FilmType.Connection()
+        reporters = ReporterType.Connection()
+        debug = graphene.Field(DjangoDebug, name="_debug")
+
+    films, reporters = [], []
+    for i in range(10):
+        films.append(Film.objects.create())
+        reporters.append(Reporter.objects.create())
+
+    for film in films:
+        for reporter in reporters:
+            film.reporters.add(reporter)
+
+    schema = graphene.Schema(query=Query)
+
+    query = """
+        query {
+            films {
+                edges {
+                    node {
+                        id
+                        reporters {
+                            edges {
+                                node {
+                                    id
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _debug {
+                sql {
+                    rawSql
+                }
+            }
+        }
+    """
+    reset_queries()
+    result = schema.execute(query)
+
+    # print(len(connection.queries))
+    # print(result.data)
+    # print(result.errors)
+    assert not result.errors
+    assert len(connection.queries) == 2
+
+    query = """
+        query {
+            reporters {
+                edges {
+                    node {
+                        id
+                        films {
+                            edges {
+                                node {
+                                    id
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _debug {
+                sql {
+                    rawSql
+                }
+            }
+        }
+    """
+    reset_queries()
+    result = schema.execute(query)
+
+    # print(len(connection.queries))
+    # print(result.data)
+    # print(result.errors)
+    assert not result.errors
+    assert len(connection.queries) == 2
+
+
+def test_queryset_optimize_recursive():
+    from django.conf import settings
+    from django.db import connection, reset_queries
+    settings.DEBUG = True
+
+    class FilmType(DjangoObjectType):
+        class Meta:
+            model = Film
+            exclude = ()
+
+    class FilmDetailsType(DjangoObjectType):
+        class Meta:
+            model = FilmDetails
+            exclude = ()
+
+    class ReporterType(DjangoObjectType):
+        class Meta:
+            model = Reporter
+            exclude = ()
+
+    class Query(graphene.ObjectType):
+        films = FilmType.Connection()
+        filmdetails_list = FilmDetailsType.Connection()
+        reporters = ReporterType.Connection()
+        debug = graphene.Field(DjangoDebug, name="_debug")
+
+    films, reporters = [], []
+    for i in range(10):
+        films.append(Film.objects.create())
+        FilmDetails.objects.create(film=films[-1])
+        reporters.append(Reporter.objects.create())
+
+    for film in films:
+        for reporter in reporters:
+            film.reporters.add(reporter)
+
+    schema = graphene.Schema(query=Query)
+
+    query = """
+        query {
+            films {
+                edges {
+                    node {
+                        id
+                        reporters {
+                            edges {
+                                node {
+                                    id
+                                }
+                            }
+                        }
+                        details {
+                            id
+                        }
+                    }
+                }
+            }
+            _debug {
+                sql {
+                    rawSql
+                }
+            }
+        }
+    """
+    reset_queries()
+    result = schema.execute(query)
+
+    # print(len(connection.queries))
+    # print(result.data)
+    # print(result.errors)
+    assert not result.errors
+    assert len(connection.queries) == 2
+
+    # reset_queries()
+    # [x for x in Reporter.objects.all().prefetch_related('films').prefetch_related('films__details')]
+    # print(len(connection.queries))
+
+    query = """
+        query {
+            reporters {
+                edges {
+                    node {
+                        id
+                        films {
+                            edges {
+                                node {
+                                    id
+                                    details {
+                                        id
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _debug {
+                sql {
+                    rawSql
+                }
+            }
+        }
+    """
+    reset_queries()
+    result = schema.execute(query)
+
+    # print(len(connection.queries))
+    # for query in connection.queries:
+    #     print(query)
+    # print(result.data)
+    # print(result.errors)
+    assert not result.errors
+    assert len(connection.queries) == 3

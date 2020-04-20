@@ -15,6 +15,15 @@ from .models import Article as ArticleModel
 from .models import Reporter as ReporterModel
 
 
+def test_related_model():
+    assert DjangoConnectionField._get_related_model(PetModel.reporter) == (True, ReporterModel)
+    assert DjangoConnectionField._get_related_model(PetModel.films) == (False, FilmModel)
+    assert DjangoConnectionField._get_related_model(FilmDetailsModel.film) == (True, FilmModel)
+    assert DjangoConnectionField._get_related_model(FilmModel.details) == (True, FilmDetailsModel)
+    assert DjangoConnectionField._get_related_model(FilmModel.reporters) == (False, ReporterModel)
+    assert DjangoConnectionField._get_related_model(ReporterModel.films) == (False, FilmModel)
+
+
 @pytest.mark.django_db
 class TestDefaultDjangoField:
     def setup_method(self, method):

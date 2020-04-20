@@ -4,6 +4,13 @@ import logging
 import six
 from django.db.models.query import QuerySet
 from django.db.models import Q
+from django.db.models.manager import Manager
+from django.db.models.fields.related_descriptors import (
+    ForeignKeyDeferredAttribute, ForwardManyToOneDescriptor,
+    ForwardOneToOneDescriptor, ManyToManyDescriptor,
+    ReverseManyToOneDescriptor, ReverseOneToOneDescriptor,
+)
+
 
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
 from promise import Promise
@@ -144,8 +151,107 @@ class DjangoConnectionField(ConnectionField):
             return self.model._default_manager
 
     @classmethod
+    def _get_related_model(cls, field):
+        if isinstance(field, ForwardManyToOneDescriptor):
+            return True, field.field.related_model
+        elif isinstance(field, ReverseOneToOneDescriptor):
+            return True, field.related.related_model
+        elif isinstance(field, ManyToManyDescriptor):
+            return False, field.rel.related_model if field.reverse else field.field.related_model
+        elif isinstance(field, ReverseManyToOneDescriptor):
+            return False, field.rel.related_model
+        return None, None
+
+    @classmethod
+    def _search_related(cls, field_ast, model, prefix=None, prefix_bool=True):
+        # print(field_ast, model)
+        def find_edges(field):
+            if not field:
+                return
+            for j in field.selection_set.selections:
+                # print(dir(j.name), type(j.name))
+                if j.name.value == 'edges':
+                    return j
+
+        def find_node(field):
+            if not field:
+                return
+            for j in field.selection_set.selections:
+                if j.name.value == 'node':
+                    return j
+
+        def find_field(field):
+            ll = []
+            if not field:
+                return []
+            for name, cur_ast in [(j.name.value, j) for j in field.selection_set.selections]:
+                if name == 'edges':
+                    continue
+                attr = getattr(model, name, None)
+                # print("=" * 30, prefix, name, "=" * 30, )
+                # print(name, attr, dir(attr), type(attr.field), getattr(attr.field, 'rel_class', None), getattr(attr, 'get_queryset', None))
+                # print(isinstance(attr, ForeignKeyDeferredAttribute))
+                # print(isinstance(attr, ForwardManyToOneDescriptor))
+                # print(isinstance(attr, ForwardOneToOneDescriptor))
+                # print(isinstance(attr, ManyToManyDescriptor))
+                # print(isinstance(attr, ReverseManyToOneDescriptor))
+                # print(isinstance(attr, ReverseOneToOneDescriptor))
+                # print(name, attr, dir(attr), dir(getattr(attr, 'rel', None)))
+                f, m = cls._get_related_model(attr)
+                if m:
+                    ll.append((f, name))
+                    ll += cls._search_related(cur_ast, m, name, prefix_bool and f)
+                # if isinstance(attr, (ForwardManyToOneDescriptor, ReverseOneToOneDescriptor)):
+                #     ll.append((True, name))
+                #     # print("recursive search : ", name)
+                #     # print(cur_ast)
+                #     # print(cls._get_related_model(attr))
+                #     ll += cls._search_related(cur_ast, cls._get_related_model(attr), name, prefix_bool)
+                # elif isinstance(attr, (ReverseManyToOneDescriptor, )):
+                #     ll.append((False, name))
+                #     # print("recursive search : ", name)
+                #     # print(cur_ast)
+                #     # print(cls._get_related_model(attr))
+                #     ll += cls._search_related(cur_ast, cls._get_related_model(attr), name, False)
+            return ll
+
+        related = []
+        related += find_field(field_ast)
+        related += find_field(find_node(find_edges(field_ast)))
+        if prefix:
+            related = [(x[0] and prefix_bool, '{}__{}'.format(prefix, x[1])) for x in related]
+        # print("related => ", related)
+        return related
+
+
+    @classmethod
+    def optimize_queryset(cls, connection, queryset, info, args):
+        if not isinstance(queryset, Manager):
+            return queryset
+
+        related = []
+        for ast in info.field_asts:
+            related += cls._search_related(ast, queryset.model)
+
+        attached = set()
+        
+        for b, name in related:
+            if name in attached:
+                continue
+            # print(name, related, issubclass(related, (ManyToOneRel, )), issubclass(related, (ManyToManyRel, )))
+            attached.add(name)
+            print(name, '=>', b)
+            if b:
+                queryset = queryset.select_related(name)
+            else:
+                queryset = queryset.prefetch_related(name)
+        return queryset
+
+    @classmethod
     def resolve_queryset(cls, connection, queryset, info, args):
+        # print("resovle queryset : ", cls, queryset)
         # queryset is the resolved iterable from ObjectType
+        # queryset = cls.optimize_queryset(connection, queryset, info, args)
         return connection._meta.node.get_queryset(queryset, info)
 
     @classmethod
@@ -326,8 +432,11 @@ class DjangoConnectionField(ConnectionField):
         # eventually leads to DjangoObjectType's get_queryset (accepts queryset)
         # or a resolve_foo (does not accept queryset)
         iterable = resolver(root, info, **args)
+
         if iterable is None:
             iterable = default_manager
+            iterable = cls.optimize_queryset(connection, iterable, info, args)
+
         # thus the iterable gets refiltered by resolve_queryset
         # but iterable might be promise
         iterable = queryset_resolver(connection, iterable, info, args)

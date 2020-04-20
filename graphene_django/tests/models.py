@@ -31,6 +31,8 @@ class Film(models.Model):
     jacket = models.ImageField(upload_to='tmp/film/jacket', blank=True, null=True)
     data = models.FileField(upload_to='tmp/film/data')
     extra_data = models.BinaryField(editable=True)
+    pet = models.ForeignKey(
+        'Pet', on_delete=models.CASCADE, related_name='films', blank=True, null=True)
 
 
 class DoeReporterManager(models.Manager):
