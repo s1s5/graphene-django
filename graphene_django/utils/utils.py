@@ -15,14 +15,14 @@ try:
     import django_filters  # noqa
 
     DJANGO_FILTER_INSTALLED = True
-except ImportError:
+except ImportError:   # pragma: no cover
     DJANGO_FILTER_INSTALLED = False
 
 
 def isiterable(value):
     try:
         iter(value)
-    except TypeError:
+    except TypeError:   # pragma: no cover
         return False
     return True
 
@@ -85,16 +85,16 @@ def is_valid_django_model(model):
 def import_single_dispatch():
     try:
         from functools import singledispatch
-    except ImportError:
+    except ImportError:   # pragma: no cover
         singledispatch = None
 
-    if not singledispatch:
+    if not singledispatch:   # pragma: no cover
         try:
             from singledispatch import singledispatch
         except ImportError:
             pass
 
-    if not singledispatch:
+    if not singledispatch:   # pragma: no cover
         raise Exception(
             "It seems your python version does not include "
             "functools.singledispatch. Please install the 'singledispatch' "
