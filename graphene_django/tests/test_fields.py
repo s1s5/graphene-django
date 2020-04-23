@@ -213,6 +213,55 @@ class TestDefaultDjangoField:
         assert self.ReporterType.called.get('resolve', 0) == 0
 
 
+    def test_resolve_onetoone_nest_deep(self):
+        film_gid = to_global_id('FilmType', self.film.pk)
+        film_details_gid = to_global_id('FilmDetailsType', self.film_details.pk)
+        reporter_gid = to_global_id('ReporterType', self.reporter.pk)
+        query = """
+            query {
+                film(id: "%s") {  # Film::resolve, Film::get_queryset一回目
+                    id
+                    details {   # FilmDetails::resolve一回目
+                        id
+                        film {    # Film::resolve二回目
+                            id
+                            reporters {   # Reporter::get_queryset一回目
+                                edges {
+                                    node {
+                                        id
+                                        films {    # Film::get_queryset二回目
+                                            edges {
+                                                node {
+                                                    id
+                                                    details {    # FilmDetails::resolve二回目
+                                                        id
+                                                        film {    # Film::resolve三回目
+                                                            id
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (film_gid, )
+        result = self.schema.execute(query)
+        # print(result.data)
+        assert not result.errors
+        # assert result.data == {'film': {'id': film_gid, 'details': {'id': film_details_gid, 'film': {'id': film_gid, 'reporters': {'edges': [{'node': {'id': reporter_gid}}]}}}}}
+        assert self.FilmType.called.get('get_queryset', 0) == 2
+        assert self.FilmType.called.get('resolve', 0) == 3
+        assert self.FilmDetailsType.called.get('get_queryset', 0) == 0
+        assert self.FilmDetailsType.called.get('resolve', 0) == 2
+        assert self.ReporterType.called.get('get_queryset', 0) == 1
+        assert self.ReporterType.called.get('resolve', 0) == 0
+
+
 
 @pytest.mark.django_db
 class TestDjangoListField:
