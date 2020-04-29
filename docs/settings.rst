@@ -109,7 +109,7 @@ Default: ``0``
 When set to ``True`` field names in the ``errors`` object will be camel case.
 By default they will be snake case.
 
-Default: ``False``
+Default: ``True``
 
 .. code:: python
 
