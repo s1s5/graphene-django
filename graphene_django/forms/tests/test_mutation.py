@@ -43,6 +43,20 @@ class MyForm(forms.Form):
         pass
 
 
+class TestForm(forms.Form):
+    a = forms.CharField()
+    b = forms.CharField()
+
+    def clean_a(self):
+        text = self.cleaned_data["a"]
+        if text == "INVALID_INPUT":
+            raise ValidationError("Invalid input")
+        return text
+
+    def save(self):
+        pass
+
+
 class PetForm(forms.ModelForm):
     class Meta:
         model = Pet
@@ -185,6 +199,137 @@ class FormMutationTests(TestCase):
         self.assertIs(result.errors, None)
         self.assertEqual(result.data["myMutation"]["errors"], [])
         self.assertEqual(result.data["myMutation"]["text"], "VALID_INPUT")
+
+
+    def test_form_only_valid(self):
+        class TestMutation(DjangoFormMutation):
+            class Meta:
+                form_class = TestForm
+                only_fields = ('a')
+
+            @classmethod
+            def get_form_kwargs(cls, root, info, **input):
+                return super().get_form_kwargs(root, info, b="hello-b", **input)
+
+        class Mutation(ObjectType):
+            m = TestMutation.Field()
+
+        schema = Schema(query=MockQuery, mutation=Mutation)
+
+        result = schema.execute(
+            """
+             mutation {
+                 m(input: { a: "VALID_INPUT" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    a
+                }
+            }
+            """
+        )
+        self.assertIs(result.errors, None)
+        self.assertEqual(result.data['m']['a'], 'VALID_INPUT')
+
+
+    def test_form_only_error(self):
+        class TestMutation(DjangoFormMutation):
+            class Meta:
+                form_class = TestForm
+                only_fields = ('a')
+
+            @classmethod
+            def get_form_kwargs(cls, root, info, **input):
+                return super().get_form_kwargs(root, info, b="hello-b", **input)
+
+        class Mutation(ObjectType):
+            m = TestMutation.Field()
+
+        schema = Schema(query=MockQuery, mutation=Mutation)
+
+        result = schema.execute(
+            """
+             mutation {
+                 m(input: { a: "INVALID_INPUT" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    a
+                }
+            }
+            """
+        )
+        self.assertIs(result.errors, None)
+        self.assertEqual(result.data['m']['errors'], [{'field': 'a', 'messages': ['Invalid input']}])
+        self.assertEqual(result.data['m']['a'], 'INVALID_INPUT')
+
+
+    def test_form_exclude_valid(self):
+        class TestMutation(DjangoFormMutation):
+            class Meta:
+                form_class = TestForm
+                exclude_fields = ('b')
+
+            @classmethod
+            def get_form_kwargs(cls, root, info, **input):
+                return super().get_form_kwargs(root, info, b="hello-b", **input)
+
+        class Mutation(ObjectType):
+            m = TestMutation.Field()
+
+        schema = Schema(query=MockQuery, mutation=Mutation)
+
+        result = schema.execute(
+            """
+             mutation {
+                 m(input: { a: "VALID_INPUT" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    a
+                }
+            }
+            """
+        )
+        self.assertIs(result.errors, None)
+        self.assertEqual(result.data['m']['a'], 'VALID_INPUT')
+
+
+    def test_form_exclude_error(self):
+        class TestMutation(DjangoFormMutation):
+            class Meta:
+                form_class = TestForm
+                exclude_fields = ('b')
+
+            @classmethod
+            def get_form_kwargs(cls, root, info, **input):
+                return super().get_form_kwargs(root, info, b="hello-b", **input)
+
+        class Mutation(ObjectType):
+            m = TestMutation.Field()
+
+        schema = Schema(query=MockQuery, mutation=Mutation)
+
+        result = schema.execute(
+            """
+             mutation {
+                 m(input: { a: "INVALID_INPUT" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    a
+                }
+            }
+            """
+        )
+        self.assertIs(result.errors, None)
+        self.assertEqual(result.data['m']['errors'], [{'field': 'a', 'messages': ['Invalid input']}])
+        self.assertEqual(result.data['m']['a'], 'INVALID_INPUT')
+
 
 
 @pytest.mark.django_db

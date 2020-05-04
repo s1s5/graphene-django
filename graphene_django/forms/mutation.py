@@ -158,6 +158,8 @@ class DjangoFormMutation(BaseDjangoFormMutation):
         _meta = DjangoFormMutationOptions(cls)
         _meta.form_class = form_class
         _meta.fields = yank_fields_from_attrs(output_fields, _as=Field)
+        _meta.only_fields = only_fields
+        _meta.exclude_fields = exclude_fields
 
         input_fields = yank_fields_from_attrs(input_fields, _as=InputField)
         super(DjangoFormMutation, cls).__init_subclass_with_meta__(
@@ -167,7 +169,10 @@ class DjangoFormMutation(BaseDjangoFormMutation):
     @classmethod
     def perform_mutate(cls, form, info):
         form.save()
-        return cls(errors=[], **form.cleaned_data)
+        return cls(errors=[], **{
+            key: value
+            for key, value in form.cleaned_data.items()
+            if cls._check_form_key(key)})
 
     @classmethod
     def mutate_and_get_payload(cls, root, info, **input):
@@ -181,9 +186,21 @@ class DjangoFormMutation(BaseDjangoFormMutation):
                 p = len(form.prefix) + 1
                 return cls(errors=errors, **{
                     key[p:] : value
-                    for key, value in form.data.items()})
+                    for key, value in form.data.items()
+                    if cls._check_form_key(key)})
             else:
-                return cls(errors=errors, **form.data)
+                return cls(errors=errors, **{
+                    key: value
+                    for key, value in form.data.items()
+                    if cls._check_form_key(key)})
+
+    @classmethod
+    def _check_form_key(cls, key):
+        if cls._meta.only_fields:
+            return key in cls._meta.only_fields
+        elif cls._meta.exclude_fields:
+            return key not in cls._meta.exclude_fields
+        return True
 
 
 
