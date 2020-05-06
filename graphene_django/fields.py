@@ -240,7 +240,7 @@ class DjangoConnectionField(ConnectionField):
                 continue
             # print(name, related, issubclass(related, (ManyToOneRel, )), issubclass(related, (ManyToManyRel, )))
             attached.add(name)
-            print(name, '=>', b)
+            # print(name, '=>', b)
             if b:
                 queryset = queryset.select_related(name)
             else:
