@@ -3,5 +3,6 @@ from .mutation import (
     DjangoFormMutation,
     DjangoCreateModelMutation,
     DjangoUpdateModelMutation,
+    DjangoUpdateOrCreateModelMutation,
     DjangoDeleteModelMutation,
 )

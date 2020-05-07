@@ -324,7 +324,7 @@ class DjangoUpdateModelMutation(DjangoCreateModelMutation):
         return cls._meta.form_class
 
 
-class DjangoUpdateOrCreteModelMutation(DjangoCreateModelMutation):
+class DjangoUpdateOrCreateModelMutation(DjangoCreateModelMutation):
     inject_id = True
     inject_id_required = False
 
