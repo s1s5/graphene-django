@@ -211,6 +211,7 @@ class DjangoModelMutationOptions(DjangoFormMutationOptions):
 
 class DjangoCreateModelMutation(BaseDjangoFormMutation):
     inject_id = False
+    inject_id_required = True
     fields_for_form_options = {}
 
     class Meta:
@@ -258,7 +259,7 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
         form = form_class()
         input_fields = fields_for_form(form, only_fields, exclude_fields, fields_for_form_options, is_model_field=True)
         if cls.inject_id:
-            input_fields["id"] = graphene.ID(required=True)
+            input_fields["id"] = graphene.ID(required=cls.inject_id_required)
 
         registry = get_global_registry()
         model_type = registry.get_type_for_model(model)
@@ -321,6 +322,14 @@ class DjangoUpdateModelMutation(DjangoCreateModelMutation):
                     cls._meta.model, fields=tuple(fields), exclude=(), **cls._meta._modelform_factory_options)
                 return form_class
         return cls._meta.form_class
+
+
+class DjangoUpdateOrCreteModelMutation(DjangoCreateModelMutation):
+    inject_id = True
+    inject_id_required = False
+
+    class Meta:
+        abstract = True
 
 
 
