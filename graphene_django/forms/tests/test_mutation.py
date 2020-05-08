@@ -679,10 +679,17 @@ input PetMutationInput {
                         name
                         age
                     }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
                 }
             }
             """
         )
+
         self.assertIs(result.errors, None)
 
         data = result.data['petMutation']

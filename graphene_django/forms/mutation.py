@@ -282,6 +282,7 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
         _meta.model = model
         _meta.return_field_name = return_field_name
         _meta.fields = yank_fields_from_attrs(output_fields, _as=Field)
+        _meta.connection_field_class = model_type._meta.connection_field_class(model_type)
         _meta.edge_type = edge_type
 
         _meta._form_class = _form_class
@@ -299,7 +300,10 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
         obj = form.save()
         kwargs = {
             cls._meta.return_field_name: obj,
-            'edge': cls._meta.edge_type(node=obj)
+            'edge': cls._meta.edge_type(
+                cursor=cls._meta.connection_field_class.instance_to_cursor(obj),
+                node=obj,
+            )
         }
         return cls(errors=[], **kwargs)
 
