@@ -166,6 +166,7 @@ type ArticleEdge {
 enum ArticleImportance {
   A_1
   A_2
+  A_3
 }
 
 enum ArticleLang {

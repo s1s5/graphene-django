@@ -449,7 +449,7 @@ def test_should_query_node_filtering():
                 edges {
                     node {
                         id
-                        articles(lang: "es") {
+                        articles(lang: ES) {
                             edges {
                                 node {
                                     id
@@ -582,7 +582,7 @@ def test_should_query_node_multiple_filtering():
                 edges {
                     node {
                         id
-                        articles(lang: "es", headline: "Article Node 1") {
+                        articles(lang: ES, headline: "Article Node 1") {
                             edges {
                                 node {
                                     id

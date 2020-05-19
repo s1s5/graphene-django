@@ -11,6 +11,8 @@ from graphene_django import DjangoObjectType
 from graphene_django.forms import GlobalIDFormField, GlobalIDMultipleChoiceField
 from graphene_django.tests.models import Article, Pet, Reporter
 from graphene_django.utils import DJANGO_FILTER_INSTALLED
+from ...registry import reset_global_registry
+
 
 pytestmark = []
 
@@ -36,6 +38,11 @@ else:
     )
 
 pytestmark.append(pytest.mark.django_db)
+
+@pytest.fixture()
+def use_global_registry():
+    yield
+    reset_global_registry()
 
 
 if DJANGO_FILTER_INSTALLED:
@@ -587,7 +594,7 @@ def test_should_query_filter_node_limit():
                     node {
                         id
                         firstName
-                        articles(lang: "es") {
+                        articles(lang: ES) {
                             edges {
                                 node {
                                     id
@@ -1021,3 +1028,88 @@ def test_filter_filterset_based_on_mixin():
 
     assert not result.errors
     assert result.data == expected
+
+
+def test_enum_0():
+    class ArticleFilterSet(FilterSet):
+        class Meta:
+            model = Article
+            fields = {
+                'importance': ['exact', 'in']
+            }
+
+    class ArticleNode(DjangoObjectType):
+        class Meta:
+            model = Article
+            fields = ['importance']
+            filterset_class = ArticleFilterSet
+
+
+    class Query(ObjectType):
+        article_list = ArticleNode.Connection()
+
+    r1 = Reporter.objects.create(first_name="r1", last_name="r1", email="r1@test.com")
+    Article.objects.create(pub_date=datetime.now(),
+                           pub_date_time=datetime.now(),
+                           reporter=r1,
+                           editor=r1,
+                           importance=1)
+    Article.objects.create(pub_date=datetime.now(),
+                           pub_date_time=datetime.now(),
+                           reporter=r1,
+                           editor=r1,
+                           importance=2)
+
+    Article.objects.create(pub_date=datetime.now(),
+                           pub_date_time=datetime.now(),
+                           reporter=r1,
+                           editor=r1,
+                           importance=3)
+
+    schema = Schema(query=Query)
+    # print(schema)
+
+    query = """
+    query {
+        articleList(importance: A_1) {
+            edges {
+                node {
+                    id
+                    importance
+                }
+            }
+        }
+    }
+    """
+    schema = Schema(query=Query)
+    result = schema.execute(query)
+    # print(result.errors)
+    # print(result.data['articleList']['edges'])
+    assert result.errors is None
+    assert result.data['articleList']['edges'] == [{'node': {'id': 'QXJ0aWNsZU5vZGU6MQ==', 'importance': 'A_1'}}]
+
+    query = """
+    query {
+        articleList(importance_In: [A_1, A_2]) {
+            edges {
+                node {
+                    id
+                    importance
+                }
+            }
+        }
+    }
+    """
+    schema = Schema(query=Query)
+    result = schema.execute(query)
+    # print(result.errors)
+    # print(result.errors[0])
+    # print(dir(result.errors[0]))
+    # print(dir(result.errors[0].stack))
+    # result.errors[0].stack.reraise()
+    # for key in dir(result.errors[0]):
+    #     print(key, '=>', getattr(result.errors[0], key))
+    # print(result.data['articleList']['edges'])
+    assert result.errors is None
+    assert result.data['articleList']['edges'] == [{'node': {'id': 'QXJ0aWNsZU5vZGU6MQ==', 'importance': 'A_1'}}, {'node': {'id': 'QXJ0aWNsZU5vZGU6Mg==', 'importance': 'A_2'}}]
+    # print(result.data)

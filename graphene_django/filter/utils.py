@@ -5,6 +5,13 @@ from django_filters import OrderingFilter
 from django_filters.utils import get_model_field
 from .filterset import custom_filterset_factory, setup_filterset
 
+from django import forms
+import graphene
+from graphene_django.forms.converter import convert_form_field
+from graphene_django.converter import convert_django_field_with_choices
+from graphene_django.registry import get_global_registry
+
+
 
 class MultipleOrderingFilter(OrderingFilter):
     max_conbination = 3
@@ -37,6 +44,34 @@ class MultipleOrderingFilter(OrderingFilter):
         return choices + multiple_choices
 
 
+class ModelToFormChoiceField(forms.ChoiceField):
+    def __init__(self, model, field_name, *args, **kwargs):
+        self._model = model
+        self.parent_field = model._meta.get_field(field_name)
+        super().__init__(choices=self.parent_field.choices, *args, **kwargs)
+
+
+class ModelToFormMultipleChoiceField(forms.MultipleChoiceField):
+    def __init__(self, model, field_name, *args, **kwargs):
+        self._model = model
+        self.parent_field = model._meta.get_field(field_name)
+        super().__init__(choices=self.parent_field.choices, *args, **kwargs)
+
+
+@convert_form_field.register(ModelToFormChoiceField)
+def convert_form_field_to_int(field, force_required_false=False):
+    registry = get_global_registry()
+    enum = convert_django_field_with_choices(field.parent_field, registry)
+    return type(enum)(required=False)
+
+
+@convert_form_field.register(ModelToFormMultipleChoiceField)
+def convert_form_field_to_int_multiple(field, force_required_false=False):
+    registry = get_global_registry()
+    enum = convert_django_field_with_choices(field.parent_field, registry)
+    return graphene.List(type(enum), required=False)
+
+
 
 def get_filtering_args_from_filterset(filterset_class, type):
     """ Inspect a FilterSet and produce the arguments to pass to
@@ -54,11 +89,19 @@ def get_filtering_args_from_filterset(filterset_class, type):
             form_field = filter_field.field
         else:
             model_field = get_model_field(model, filter_field.field_name)
+
             filter_type = filter_field.lookup_expr
             if filter_type != "isnull" and hasattr(model_field, "formfield"):
                 form_field = model_field.formfield(
                     required=filter_field.extra.get("required", False)
                 )
+
+            if getattr(model_field, 'choices', None):
+                if filter_type == 'exact':
+                    form_field = ModelToFormChoiceField(model, filter_field.field_name)
+                elif filter_type == 'in':
+                    form_field = ModelToFormMultipleChoiceField(model, filter_field.field_name)
+
 
         # Fallback to field defined on filter if we can't get it from the
         # model field

@@ -5,6 +5,9 @@ from django_filters import Filter, MultipleChoiceFilter, VERSION
 from django_filters.filterset import BaseFilterSet, FilterSet
 from django_filters.filterset import FILTER_FOR_DBFIELD_DEFAULTS
 
+# from django_filters.conf import settings as filters_settings
+
+
 from graphql_relay.node.node import from_global_id
 
 from ..forms import GlobalIDFormField, GlobalIDMultipleChoiceField
@@ -39,6 +42,28 @@ GRAPHENE_FILTER_SET_OVERRIDES = {
 }
 
 
+# from django_filters.fields import ChoiceField, MultipleChoiceField
+from django_filters.filters import ChoiceFilter, MultipleChoiceFilter
+
+# class GrapheneChoiceField(ChoiceField):
+#     def __init__(self, *args, **kwargs):
+#         print("GrapheneChoiceField", args, kwargs)
+#         super().__init__(*args, **kwargs)
+
+# class GrapheneChoiceFilter(ChoiceFilter):
+#     field_class = GrapheneChoiceField
+
+
+# from graphene_django.forms.converter import convert_form_field
+# from graphene_django.converter import convert_django_field_with_choices
+# from graphene_django.registry import get_global_registry
+
+# @convert_form_field.register(GrapheneChoiceField)
+# def convert_form_field_to_int(field, force_required_false=False):
+#     registry = get_global_registry()
+#     return convert_django_field_with_choices(field.parent_field, registry)
+
+
 class GrapheneFilterSetMixin(BaseFilterSet):
     """ A django_filters.filterset.BaseFilterSet with default filter overrides
     to handle global IDs """
@@ -48,6 +73,25 @@ class GrapheneFilterSetMixin(BaseFilterSet):
             FILTER_FOR_DBFIELD_DEFAULTS.items(), GRAPHENE_FILTER_SET_OVERRIDES.items()
         )
     )
+    # def __init__(self, *args, **kwargs):
+    #     print('GrapheneFilterSetMixin.__init__', args, kwargs)
+    #     super().__init__(*args, **kwargs)
+
+    # def get_form_class(self):
+    #     klass = super().get_form_class()
+    #     print('get_form_class', klass, self._meta.model, list(self.filters.items()))
+    #     return klass
+
+    @classmethod
+    def filter_for_lookup(cls, field, lookup_type):
+        # print('FOO', field, lookup_type, getattr(field, 'choices', None))
+        if getattr(field, 'choices', None):
+            if lookup_type == 'in':
+                return MultipleChoiceFilter, {'choices': field.choices}
+            elif lookup_type == 'exact':
+                return ChoiceFilter, {'choices': field.choices}
+
+        return super().filter_for_lookup(field, lookup_type)
 
 
 # To support a Django 1.11 + Python 2.7 combination django-filter must be

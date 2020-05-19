@@ -112,7 +112,7 @@ class Article(models.Model):
         "Importance",
         null=True,
         blank=True,
-        choices=[(1, u"Very important"), (2, u"Not as important")],
+        choices=[(1, u"Very important"), (2, u"Not as important"), (3, u"so important")],
     )
 
     def __str__(self):  # __unicode__ on Python 2
