@@ -6,11 +6,12 @@ from django_filters.utils import get_model_field
 from .filterset import custom_filterset_factory, setup_filterset
 
 from django import forms
+from django.db import models
 import graphene
 from graphene_django.forms.converter import convert_form_field
 from graphene_django.converter import convert_django_field_with_choices
 from graphene_django.registry import get_global_registry
-
+from graphene_django.forms import GlobalIDFormField, GlobalIDMultipleChoiceField
 
 
 class MultipleOrderingFilter(OrderingFilter):
@@ -72,7 +73,6 @@ def convert_form_field_to_int_multiple(field, force_required_false=False):
     return graphene.List(type(enum), required=False)
 
 
-
 def get_filtering_args_from_filterset(filterset_class, type):
     """ Inspect a FilterSet and produce the arguments to pass to
         a Graphene Field. These arguments will be available to
@@ -102,6 +102,10 @@ def get_filtering_args_from_filterset(filterset_class, type):
                 elif filter_type == 'in':
                     form_field = ModelToFormMultipleChoiceField(model, filter_field.field_name)
 
+            if isinstance(model_field, (models.AutoField, models.OneToOneField, models.ForeignKey,
+                                        models.ManyToManyField, models.ManyToOneRel, models.ManyToManyRel)):
+                if filter_type == 'in':
+                    form_field = GlobalIDMultipleChoiceField(required=False)
 
         # Fallback to field defined on filter if we can't get it from the
         # model field

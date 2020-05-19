@@ -5,6 +5,7 @@ import pytest
 from django.db.models import TextField, Value
 from django.db.models.functions import Concat
 
+from graphql_relay import to_global_id
 from graphene import Argument, Boolean, Field, Float, ObjectType, Schema, String
 from graphene.relay import Node
 from graphene_django import DjangoObjectType
@@ -1113,3 +1114,100 @@ def test_enum_0():
     assert result.errors is None
     assert result.data['articleList']['edges'] == [{'node': {'id': 'QXJ0aWNsZU5vZGU6MQ==', 'importance': 'A_1'}}, {'node': {'id': 'QXJ0aWNsZU5vZGU6Mg==', 'importance': 'A_2'}}]
     # print(result.data)
+
+
+def test_pk_0():
+    class ArticleFilterSet(FilterSet):
+        class Meta:
+            model = Article
+            fields = {
+                'reporter': ['exact', 'in']
+            }
+
+    class ReporterNode(DjangoObjectType):
+        class Meta:
+            model = Reporter
+            fields = ['first_name']
+
+    class ArticleNode(DjangoObjectType):
+        class Meta:
+            model = Article
+            fields = ['reporter']
+            filterset_class = ArticleFilterSet
+
+    class Query(ObjectType):
+        article_list = ArticleNode.Connection()
+
+    r1 = Reporter.objects.create(first_name="r1", last_name="r1", email="r1@test.com")
+    r2 = Reporter.objects.create(first_name="r2", last_name="r2", email="r2@test.com")
+    r3 = Reporter.objects.create(first_name="r3", last_name="r3", email="r3@test.com")
+    a1 = Article.objects.create(pub_date=datetime.now(),
+                                pub_date_time=datetime.now(),
+                                reporter=r1,
+                                editor=r1,
+                                importance=1)
+    a2 = Article.objects.create(pub_date=datetime.now(),
+                                pub_date_time=datetime.now(),
+                                reporter=r2,
+                                editor=r2,
+                                importance=2)
+
+    a3 = Article.objects.create(pub_date=datetime.now(),
+                                pub_date_time=datetime.now(),
+                                reporter=r3,
+                                editor=r3,
+                                importance=3)
+
+    schema = Schema(query=Query)
+    
+    r1_id = to_global_id('ReporterNode', r1.pk)
+    r2_id = to_global_id('ReporterNode', r2.pk)
+    a1_id = to_global_id('ArticleNode', a1.pk)
+    a2_id = to_global_id('ArticleNode', a2.pk)
+
+    # print(schema)
+
+    query = """
+    query($id: ID) {
+        articleList(reporter: $id) {
+            edges {
+                node {
+                    id
+                    reporter {
+                        id
+                        firstName
+                    }
+                }
+            }
+        }
+    }
+    """
+    schema = Schema(query=Query)
+    result = schema.execute(query, variable_values={"id": r1_id})
+    # print(result.errors)
+    # print(result.data)
+    # print(r1_id, r2_id, a1_id, a2_id)
+    assert result.errors is None
+    assert result.data['articleList']['edges'] == [{'node': {'id': a1_id, 'reporter': {'id': r1_id, 'firstName': 'r1'}}}]
+
+    query = """
+    query($id: [ID]) {
+        articleList(reporter_In: $id) {
+            edges {
+                node {
+                    id
+                    reporter {
+                        id
+                        firstName
+                    }
+                }
+            }
+        }
+    }
+    """
+    schema = Schema(query=Query)
+    result = schema.execute(query, variable_values={"id": [r1_id, r2_id]})
+    # print(result.errors)
+    # print(result.data)
+    assert result.errors is None
+    assert result.data['articleList']['edges'] == [{'node': {'id': a1_id, 'reporter': {'id': r1_id, 'firstName': 'r1'}}}, {'node': {'id': a2_id, 'reporter': {'id': r2_id, 'firstName': 'r2'}}}]

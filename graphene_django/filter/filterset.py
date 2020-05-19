@@ -43,7 +43,7 @@ GRAPHENE_FILTER_SET_OVERRIDES = {
 
 
 # from django_filters.fields import ChoiceField, MultipleChoiceField
-from django_filters.filters import ChoiceFilter, MultipleChoiceFilter
+from django_filters.filters import ChoiceFilter, MultipleChoiceFilter, ModelMultipleChoiceFilter
 
 # class GrapheneChoiceField(ChoiceField):
 #     def __init__(self, *args, **kwargs):
@@ -62,7 +62,7 @@ from django_filters.filters import ChoiceFilter, MultipleChoiceFilter
 # def convert_form_field_to_int(field, force_required_false=False):
 #     registry = get_global_registry()
 #     return convert_django_field_with_choices(field.parent_field, registry)
-
+from django_filters.filterset import remote_queryset
 
 class GrapheneFilterSetMixin(BaseFilterSet):
     """ A django_filters.filterset.BaseFilterSet with default filter overrides
@@ -90,6 +90,12 @@ class GrapheneFilterSetMixin(BaseFilterSet):
                 return MultipleChoiceFilter, {'choices': field.choices}
             elif lookup_type == 'exact':
                 return ChoiceFilter, {'choices': field.choices}
+        if isinstance(field, (models.AutoField, models.OneToOneField, models.ForeignKey,
+                              models.ManyToManyField, models.ManyToOneRel, models.ManyToManyRel)):
+            if lookup_type == 'in':
+                # print(dir(field))
+                # return ModelMultipleChoiceFilter, {'queryset': remote_queryset(field)}
+                return GlobalIDMultipleChoiceFilter, {}
 
         return super().filter_for_lookup(field, lookup_type)
 

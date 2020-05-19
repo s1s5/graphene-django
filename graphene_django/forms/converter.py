@@ -63,7 +63,6 @@ def convert_form_field_to_float(field, force_required_false=False):
 def convert_form_field_to_list(field, force_required_false=False):
     return List(ID, required=(not force_required_false) and field.required)
 
-
 @convert_form_field.register(forms.DateField)
 def convert_form_field_to_date(field, force_required_false=False):
     return Date(description=field.help_text, required=(not force_required_false) and field.required)
