@@ -392,8 +392,8 @@ class DjangoObjectType(ObjectType):
         return cls._meta.field_class(cls, id=graphene.ID(required=True))
 
     @classmethod
-    def Connection(cls):
-        return cls._meta.connection_field_class(cls)
+    def Connection(cls, *args, **kwargs):
+        return cls._meta.connection_field_class(cls, *args, **kwargs)
 
 
 class ErrorType(ObjectType):

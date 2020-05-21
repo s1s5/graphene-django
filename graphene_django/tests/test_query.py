@@ -1694,3 +1694,67 @@ def test_queryset_optimize_recursive():
     # print(result.errors)
     assert not result.errors
     assert len(connection.queries) == 3
+
+
+def test_queryset_connection_args():
+    class PetType(DjangoObjectType):
+        counter = 0
+        class Meta:
+            model = Pet
+            exclude = ()
+
+        @classmethod
+        def get_queryset(cls, queryset, info):
+            cls.counter += 1
+            return queryset
+
+    class Query(graphene.ObjectType):
+        pets = PetType.Connection(age=graphene.Int(required=True))
+
+        def resolve_pets(root, info, age, *args, **kwargs):
+            return Pet.objects.all().filter(age=age)
+
+
+    [Pet.objects.create(age=0) for x in range(10)]
+    [Pet.objects.create(age=1) for x in range(10)]
+    [Pet.objects.create(age=2) for x in range(10)]
+
+    schema = graphene.Schema(query=Query)
+    # print(schema)
+
+    query = """
+        query {
+            pets {
+                edges {
+                    node {
+                        id
+                        age
+                    }
+                }
+            }
+        }
+    """
+    result = schema.execute(query)
+    assert result.errors[0].message == 'Field "pets" argument "age" of type "Int!" is required but not provided.'
+    assert result.data is None
+    assert PetType.counter == 0
+
+    query = """
+        query {
+            pets(age: 1, first: 3) {
+                edges {
+                    node {
+                        id
+                        age
+                    }
+                }
+            }
+        }
+    """
+    result = schema.execute(query)
+    # print(result.errors)
+    # print(result.data)
+    assert result.errors is None
+    assert len(result.data['pets']['edges']) == 3
+    assert [x['node']['age'] for x in result.data['pets']['edges']] == [1, 1, 1]
+    assert PetType.counter == 1
