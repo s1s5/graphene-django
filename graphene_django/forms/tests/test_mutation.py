@@ -989,6 +989,11 @@ class GetOrCreateModelMutationTests(TestCase):
                 model = Pet
                 fields = "__all__"
 
+        class ReporterType(DjangoObjectType):
+            class Meta:
+                model = Reporter
+                fields = ('first_name', )
+
         class PetGetOrCreate(DjangoGetOrCreateModelMutation):
             class Meta:
                 model = Pet
@@ -1008,9 +1013,31 @@ class GetOrCreateModelMutationTests(TestCase):
                 model = Pet
                 form_class = PetGetOrCraeteForm
 
+        class PetGetOrCreateForeignKey(DjangoGetOrCreateModelMutation):
+            class Meta:
+                model = Pet
+                fields = ('name', 'age', 'reporter', )
+
+        class PetGetOrCraeteFormForeignKey(forms.ModelForm):
+            class Meta:
+                model = Pet
+                fields = ('reporter', )
+
+            def save(self):
+                self.instance.name = 'default-name'
+                self.instance.age = 0
+                return super().save()
+
+        class PetGetOrCreateFormForeignKey(DjangoGetOrCreateModelMutation):
+            class Meta:
+                model = Pet
+                form_class = PetGetOrCraeteFormForeignKey
+
         class Mutation(ObjectType):
             pet_get_or_create = PetGetOrCreate.Field()
             pet_get_or_create_form = PetGetOrCreateForm.Field()
+            pet_get_or_create_foreign_key = PetGetOrCreateForeignKey.Field()
+            pet_get_or_create_form_foreign_key = PetGetOrCreateFormForeignKey.Field()
 
         self.PetType = PetType
         self.schema = Schema(mutation=Mutation)
@@ -1152,6 +1179,197 @@ class GetOrCreateModelMutationTests(TestCase):
         assert Pet.objects.all().count() == 1
         assert Pet.objects.get().name == 'Mia'
         assert Pet.objects.get().age == 10
+
+    def test_create_foreign_key(self):
+        reporter = Reporter.objects.create(first_name="John")
+        assert Pet.objects.all().count() == 0
+        result = self.schema.execute(
+            """ mutation {
+            petGetOrCreateForeignKey(input: { name: "Mia", age: 10, reporter: "%s" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                        reporter {
+                            firstName
+                        }
+                    }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+            """ % to_global_id("ReporterType", reporter.pk)
+        )
+        # print(result.errors)
+        # print(result.data)
+        # print(Pet.objects.all().count())
+        # print(Pet.objects.get())
+
+        assert result.errors is None
+        assert result.data['petGetOrCreateForeignKey']['pet'] == {'name': 'Mia', 'age': 10, 'reporter': {'firstName': 'John'}}
+        assert Pet.objects.all().count() == 1
+        assert Pet.objects.get().name == 'Mia'
+        assert Pet.objects.get().age == 10
+        assert Pet.objects.get().reporter == reporter
+
+    def test_get_foreign_key(self):
+        reporter = Reporter.objects.create(first_name="John")
+        Pet.objects.create(name="Mia", age=10, reporter=reporter)
+        assert Pet.objects.all().count() == 1
+        result = self.schema.execute(
+            """ mutation {
+            petGetOrCreateForeignKey(input: { name: "Mia", age: 10, reporter: "%s" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                        reporter {
+                            firstName
+                        }
+                    }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+            """ % to_global_id("ReporterType", reporter.pk)
+        )
+        # print(result.errors)
+        # print(result.data)
+        # print(Pet.objects.all().count())
+        # print(Pet.objects.get())
+        assert result.errors is None
+        assert result.data['petGetOrCreateForeignKey']['pet'] == {'name': 'Mia', 'age': 10, 'reporter': {'firstName': 'John'}}
+        assert Pet.objects.all().count() == 1
+        assert Pet.objects.get().name == 'Mia'
+        assert Pet.objects.get().age == 10
+        assert Pet.objects.get().reporter == reporter
+
+    def test_get_foreign_key_error(self):
+        assert Pet.objects.all().count() == 0
+        result = self.schema.execute(
+            """ mutation {
+            petGetOrCreateForeignKey(input: { name: "Mia", age: 10, reporter: "%s" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                        reporter {
+                            firstName
+                        }
+                    }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+            """ % "no-value"
+        )
+        # print(result.errors)
+        # print(result.data)
+        # print(Pet.objects.all().count())
+        assert result.errors is None
+        assert len(result.data['petGetOrCreateForeignKey']['errors']) == 1
+        assert result.data['petGetOrCreateForeignKey']['pet'] is None
+        assert Pet.objects.all().count() == 0
+
+
+    def test_create_form_foreign_key(self):
+        reporter = Reporter.objects.create(first_name="John")
+        assert Pet.objects.all().count() == 0
+        result = self.schema.execute(
+            """ mutation {
+            petGetOrCreateFormForeignKey(input: { reporter: "%s" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                        reporter {
+                            firstName
+                        }
+                    }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+            """ % to_global_id("ReporterType", reporter.pk)
+        )
+        # print(result.errors)
+        # print(result.data)
+        # print(Pet.objects.all().count())
+        # print(Pet.objects.get())
+
+        assert result.errors is None
+        assert result.data['petGetOrCreateFormForeignKey']['pet'] == {'name': 'default-name', 'age': 0, 'reporter': {'firstName': 'John'}}
+        assert Pet.objects.all().count() == 1
+        assert Pet.objects.get().name == 'default-name'
+        assert Pet.objects.get().age == 0
+        assert Pet.objects.get().reporter == reporter
+
+    def test_get_form_foreign_key(self):
+        reporter = Reporter.objects.create(first_name="John")
+        Pet.objects.create(name="Mia", age=10, reporter=reporter)
+        assert Pet.objects.all().count() == 1
+        result = self.schema.execute(
+            """ mutation {
+            petGetOrCreateFormForeignKey(input: { reporter: "%s" }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                        reporter {
+                            firstName
+                        }
+                    }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+            """ % to_global_id("ReporterType", reporter.pk)
+        )
+        # print(result.errors)
+        # print(result.data)
+        # print(Pet.objects.all().count())
+        # print(Pet.objects.get())
+        assert result.errors is None
+        assert result.data['petGetOrCreateFormForeignKey']['pet'] == {'name': 'Mia', 'age': 10, 'reporter': {'firstName': 'John'}}
+        assert Pet.objects.all().count() == 1
+        assert Pet.objects.get().name == 'Mia'
+        assert Pet.objects.get().age == 10
+        assert Pet.objects.get().reporter == reporter
 
 
 

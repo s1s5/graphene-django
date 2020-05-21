@@ -330,17 +330,7 @@ class DjangoGetOrCreateModelMutation(DjangoCreateModelMutation):
             return cls.perform_mutate(form, info)
         else:
             errors = ErrorType.from_errors(form.errors)
-            if form.prefix:
-                p = len(form.prefix) + 1
-                return cls(errors=errors, **{
-                    key[p:] : value
-                    for key, value in form.data.items()
-                    if cls._check_form_key(key)})
-            else:
-                return cls(errors=errors, **{
-                    key: value
-                    for key, value in form.data.items()
-                    if cls._check_form_key(key)})
+            return cls(errors=errors)
 
 
 class DjangoUpdateModelMutation(DjangoCreateModelMutation):
