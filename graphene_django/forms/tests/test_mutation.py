@@ -23,6 +23,7 @@ from ...settings import graphene_settings
 from ..mutation import (
     DjangoFormMutation,
     DjangoCreateModelMutation,
+    DjangoGetOrCreateModelMutation,
     DjangoUpdateModelMutation,
     DjangoDeleteModelMutation,
 )
@@ -979,6 +980,180 @@ scalar Upload
         film.data.delete()
         film.jacket.delete()
     
+
+@pytest.mark.django_db
+class GetOrCreateModelMutationTests(TestCase):
+    def setup_method(self, method):
+        class PetType(DjangoObjectType):
+            class Meta:
+                model = Pet
+                fields = "__all__"
+
+        class PetGetOrCreate(DjangoGetOrCreateModelMutation):
+            class Meta:
+                model = Pet
+                fields = ('name', 'age', )
+
+        class PetGetOrCraeteForm(forms.ModelForm):
+            class Meta:
+                model = Pet
+                fields = ('age', )
+
+            def save(self):
+                self.instance.name = 'default-name'
+                return super().save()
+
+        class PetGetOrCreateForm(DjangoGetOrCreateModelMutation):
+            class Meta:
+                model = Pet
+                form_class = PetGetOrCraeteForm
+
+        class Mutation(ObjectType):
+            pet_get_or_create = PetGetOrCreate.Field()
+            pet_get_or_create_form = PetGetOrCreateForm.Field()
+
+        self.PetType = PetType
+        self.schema = Schema(mutation=Mutation)
+
+    def teardown_method(self, method):
+        reset_global_registry()
+
+    def test_create(self):
+        assert Pet.objects.all().count() == 0
+        result = self.schema.execute(
+            """ mutation {
+            petGetOrCreate(input: { name: "Mia", age: 10 }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                    }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+            """
+        )
+        # print(result.errors)
+        # print(result.data)
+        # print(Pet.objects.all().count())
+        # print(Pet.objects.get())
+        assert result.errors is None
+        assert result.data['petGetOrCreate']['pet'] == {'name': 'Mia', 'age': 10}
+        assert Pet.objects.all().count() == 1
+        assert Pet.objects.get().name == 'Mia'
+        assert Pet.objects.get().age == 10
+
+    def test_get(self):
+        Pet.objects.create(name="Mia", age=10)
+        assert Pet.objects.all().count() == 1
+        result = self.schema.execute(
+            """ mutation {
+            petGetOrCreate(input: { name: "Mia", age: 10 }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                    }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+            """
+        )
+        # print(result.errors)
+        # print(result.data)
+        # print(Pet.objects.all().count())
+        # print(Pet.objects.get())
+        assert result.errors is None
+        assert result.data['petGetOrCreate']['pet'] == {'name': 'Mia', 'age': 10}
+        assert Pet.objects.all().count() == 1
+        assert Pet.objects.get().name == 'Mia'
+        assert Pet.objects.get().age == 10
+
+    def test_create_form(self):
+        Pet.objects.create(name="Mia", age=0)
+        assert Pet.objects.all().count() == 1
+        result = self.schema.execute(
+            """ mutation {
+            petGetOrCreateForm(input: { age: 10 }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                    }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+            """
+        )
+        # print(result.errors)
+        # print(result.data)
+        # print(Pet.objects.all().count())
+        # print(Pet.objects.get())
+        assert result.errors is None
+        assert result.data['petGetOrCreateForm']['pet'] == {'name': 'default-name', 'age': 10}
+        assert Pet.objects.all().count() == 2
+        assert Pet.objects.get(age=10).name == 'default-name'
+        assert Pet.objects.get(age=10).age == 10
+
+    def test_get_form(self):
+        Pet.objects.create(name="Mia", age=10)
+        assert Pet.objects.all().count() == 1
+        result = self.schema.execute(
+            """ mutation {
+            petGetOrCreateForm(input: { age: 10 }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                    }
+                    edge {
+                        cursor
+                        node {
+                            id
+                        }
+                    }
+                }
+            }
+            """
+        )
+        # print(result.errors)
+        # print(result.data)
+        # print(Pet.objects.all().count())
+        # print(Pet.objects.get())
+        assert result.errors is None
+        assert result.data['petGetOrCreateForm']['pet'] == {'name': 'Mia', 'age': 10}
+        assert Pet.objects.all().count() == 1
+        assert Pet.objects.get().name == 'Mia'
+        assert Pet.objects.get().age == 10
+
+
 
 @pytest.mark.django_db
 class UpdateModelMutationTests(TestCase):

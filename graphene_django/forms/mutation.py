@@ -296,8 +296,7 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
         )
 
     @classmethod
-    def perform_mutate(cls, form, info):
-        obj = form.save()
+    def create_result(cls, form, info, obj):
         kwargs = {
             cls._meta.return_field_name: obj,
             'edge': cls._meta.edge_type(
@@ -306,6 +305,42 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
             )
         }
         return cls(errors=[], **kwargs)
+
+    @classmethod
+    def perform_mutate(cls, form, info):
+        obj = form.save()
+        return cls.create_result(form, info, obj)
+
+
+class DjangoGetOrCreateModelMutation(DjangoCreateModelMutation):
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def mutate_and_get_payload(cls, root, info, **input):
+        form = cls.get_form(root, info, **input)
+
+        if form.is_valid():
+            try:
+                obj = cls._meta.model.objects.get(**form.data)
+                return cls.create_result(form, info, obj)
+            except cls._meta.model.DoesNotExist:
+                pass
+
+            return cls.perform_mutate(form, info)
+        else:
+            errors = ErrorType.from_errors(form.errors)
+            if form.prefix:
+                p = len(form.prefix) + 1
+                return cls(errors=errors, **{
+                    key[p:] : value
+                    for key, value in form.data.items()
+                    if cls._check_form_key(key)})
+            else:
+                return cls(errors=errors, **{
+                    key: value
+                    for key, value in form.data.items()
+                    if cls._check_form_key(key)})
 
 
 class DjangoUpdateModelMutation(DjangoCreateModelMutation):
