@@ -41,9 +41,9 @@ class DefaultDjangoField(Field):
     def _resolve(self, parent, info):
         return self.__resolve(self.__get_from_parent(parent, info), parent, info)
 
-    def resolve_id(self, parent_resolver, parent, info, id=None):
+    def resolve_id(self, parent_resolver, parent, info, id=None, *args, **kwargs):
         if id is None:
-            resolved = parent_resolver(parent, info)
+            resolved = parent_resolver(parent, info, *args, **kwargs)
         else:
             resolved = Node.get_node_from_global_id(info, id)
         return self.__resolve(resolved, parent, info)

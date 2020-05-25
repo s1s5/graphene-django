@@ -3,6 +3,7 @@ import datetime
 import pytest
 
 from graphql_relay import to_global_id
+import graphene
 from graphene import List, NonNull, ObjectType, Schema, String
 
 from ..fields import DjangoListField, DjangoConnectionField
@@ -79,15 +80,22 @@ class TestDefaultDjangoField:
                 return resolved
 
         class Query(ObjectType):
-            film = FilmType.Field()
+            film = FilmType.Node()
             films = FilmType.Connection()
+            film_with_genre = FilmType.Field(g=graphene.String())
+
+            def resolve_film_with_genre(root, info, g):
+                try:
+                    return FilmModel.objects.get(genre=g)
+                except FilmModel.DoesNotExist:
+                    return None
 
         self.FilmDetailsType = FilmDetailsType
         self.FilmType = FilmType
         self.ReporterType = ReporterType
 
         self.schema = Schema(query=Query)
-        self.film = FilmModel.objects.create()
+        self.film = FilmModel.objects.create(genre='do')
         self.reporter = ReporterModel.objects.create()
         self.film.reporters.add(self.reporter)
         self.film.save()
@@ -110,6 +118,36 @@ class TestDefaultDjangoField:
         assert not result.errors
         assert result.data == {'film': {'id': gid}}
         assert self.FilmType.called['get_queryset'] == 1
+        assert self.FilmType.called['resolve'] == 1
+
+    def test_resolve_called_single_no_id(self):
+        gid = to_global_id('FilmType', self.film.pk)
+        query = """
+            query {
+                filmWithGenre(g: "do") {
+                    id
+                }
+            }
+        """
+        result = self.schema.execute(query)
+        assert not result.errors
+        assert result.data == {'filmWithGenre': {'id': gid}}
+        assert self.FilmType.called.get('get_queryset', 0) == 0
+        assert self.FilmType.called['resolve'] == 1
+
+    def test_resolve_called_single_no_id_error(self):
+        gid = to_global_id('FilmType', self.film.pk)
+        query = """
+            query {
+                filmWithGenre(g: "ot") {
+                    id
+                }
+            }
+        """
+        result = self.schema.execute(query)
+        assert not result.errors
+        assert result.data == {'filmWithGenre': None}
+        assert self.FilmType.called.get('get_queryset', 0) == 0
         assert self.FilmType.called['resolve'] == 1
 
     def test_resolve_called_multi(self):

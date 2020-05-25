@@ -388,7 +388,11 @@ class DjangoObjectType(ObjectType):
             return None
 
     @classmethod
-    def Field(cls):
+    def Field(cls, *args, **kwargs):
+        return cls._meta.field_class(cls, *args, **kwargs)
+
+    @classmethod
+    def Node(cls):
         return cls._meta.field_class(cls, id=graphene.ID(required=True))
 
     @classmethod
