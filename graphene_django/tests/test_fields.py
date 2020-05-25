@@ -82,9 +82,11 @@ class TestDefaultDjangoField:
         class Query(ObjectType):
             film = FilmType.Node()
             films = FilmType.Connection()
-            film_with_genre = FilmType.Field(g=graphene.String())
+            film_with_genre = FilmType.Field(id=graphene.ID(), g=graphene.String())
 
-            def resolve_film_with_genre(root, info, g):
+            def resolve_film_with_genre(root, info, id=None, g=None):
+                if id:
+                    return graphene.relay.Node.get_node_from_global_id(info, id)
                 try:
                     return FilmModel.objects.get(genre=g)
                 except FilmModel.DoesNotExist:
@@ -133,6 +135,21 @@ class TestDefaultDjangoField:
         assert not result.errors
         assert result.data == {'filmWithGenre': {'id': gid}}
         assert self.FilmType.called.get('get_queryset', 0) == 0
+        assert self.FilmType.called['resolve'] == 1
+
+    def test_resolve_called_single_no_id_2(self):
+        gid = to_global_id('FilmType', self.film.pk)
+        query = """
+            query {
+                filmWithGenre(id: "%s") {
+                    id
+                }
+            }
+        """ % (gid, )
+        result = self.schema.execute(query)
+        assert not result.errors
+        assert result.data == {'filmWithGenre': {'id': gid}}
+        assert self.FilmType.called['get_queryset'] == 1
         assert self.FilmType.called['resolve'] == 1
 
     def test_resolve_called_single_no_id_error(self):
