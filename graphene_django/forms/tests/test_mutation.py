@@ -21,6 +21,7 @@ from graphql_relay import to_global_id
 
 from ...settings import graphene_settings
 from ..mutation import (
+    GrapheneModelForm,
     DjangoFormMutation,
     DjangoCreateModelMutation,
     DjangoGetOrCreateModelMutation,
@@ -636,7 +637,7 @@ class CreateModelMutationTests(TestCase):
         class ReporterMutation(DjangoCreateModelMutation):
             class Meta:
                 model = Reporter
-                fields = ('first_name', 'last_name', 'email', 'pets', 'a_choice', )
+                fields = ('first_name', 'last_name', 'email', 'reporter_type')
 
         class ArticleMutation(DjangoCreateModelMutation):
             class Meta:
@@ -758,8 +759,13 @@ input FilmDetailsMutationInput {
 
 }
 
+enum FilmGenre {
+  DO
+  OT
+}
+
 input FilmMutationInput {
-  genre: String!
+  genre: FilmGenre!
   reporters: [ID]!
   jacket: Upload
   data: Upload!
@@ -828,7 +834,7 @@ scalar Upload
             }
             """,
             variable_values={"input": {
-                "genre": "do",
+                "genre": "DO",
                 "reporters": [to_global_id('ReporterType', reporter.pk)],
                 "jacket": "",
                 "data": "",
@@ -871,8 +877,13 @@ scalar Upload
 
 }
 
+enum FilmGenre {
+  DO
+  OT
+}
+
 input FilmMutationInput {
-  genre: String!
+  genre: FilmGenre!
   reporters: [ID]!
   jacket: Upload
   data: Upload!
@@ -943,7 +954,7 @@ scalar Upload
             }
             """,
             variable_values={"input": {
-                "genre": "do",
+                "genre": "DO",
                 "reporters": [to_global_id('ReporterType', reporter.pk)],
                 "jacket": "",
                 "data": "",
@@ -979,6 +990,109 @@ scalar Upload
 
         film.data.delete()
         film.jacket.delete()
+
+
+@pytest.mark.django_db
+class ChoiceMutationTests(TestCase):
+    def setup_method(self, method):
+        class ReporterType(DjangoObjectType):
+            class Meta:
+                model = Reporter
+                fields = ("reporter_type", )
+
+        class ReporterMutation(DjangoCreateModelMutation):
+            class Meta:
+                model = Reporter
+                fields = ('reporter_type', )
+
+        class ReportForm(GrapheneModelForm):
+            class Meta:
+                model = Reporter
+                fields = ("reporter_type", )
+
+        class ReporterFormMutation(DjangoCreateModelMutation):
+            class Meta:
+                form_class = ReportForm
+
+        class Mutation(ObjectType):
+            reporter_mutation = ReporterMutation.Field()
+            reporter_form_mutation = ReporterFormMutation.Field()
+
+        self.schema = Schema(mutation=Mutation)
+
+
+    def test_film_choices(self):
+        schema_str = str(Schema(types=[self.schema.get_type('ReporterMutationInput')]))
+        self.assertEqual(schema_str, '''schema {
+
+}
+
+input ReporterMutationInput {
+  reporterType: ReporterReporterType!
+  formPrefix: String
+  clientMutationId: String
+}
+
+enum ReporterReporterType {
+  A_1
+  A_2
+}
+''')
+
+        result = self.schema.execute('''
+        mutation ReporterMutation($input: ReporterMutationInput!) {
+          reporterMutation(input: $input) {
+            errors {
+              field
+              messages
+            }
+            reporter {
+              reporterType
+            }
+          }
+        }
+        ''', variable_values={"input": {
+            "reporterType": "A_1",
+        }})
+        assert result.errors == None
+        assert result.data['reporterMutation']['reporter'] == {'reporterType': 'A_1'}
+
+
+    def test_film_choices_form(self):
+        schema_str = str(Schema(types=[self.schema.get_type('ReporterFormMutationInput')]))
+        self.assertEqual(schema_str, '''schema {
+
+}
+
+input ReporterFormMutationInput {
+  reporterType: ReporterReporterType!
+  formPrefix: String
+  clientMutationId: String
+}
+
+enum ReporterReporterType {
+  A_1
+  A_2
+}
+''')
+
+        result = self.schema.execute('''
+        mutation ReporterFormMutation($input: ReporterFormMutationInput!) {
+          reporterFormMutation(input: $input) {
+            errors {
+              field
+              messages
+            }
+            reporter {
+              reporterType
+            }
+          }
+        }
+        ''', variable_values={"input": {
+            "reporterType": "A_1",
+        }})
+        assert result.errors == None
+        assert result.data['reporterFormMutation']['reporter'] == {'reporterType': 'A_1'}
     
 
 @pytest.mark.django_db
@@ -1607,8 +1721,13 @@ input FilmDetailsMutationInput {
 
 }
 
+enum FilmGenre {
+  DO
+  OT
+}
+
 input FilmMutationInput {
-  genre: String
+  genre: FilmGenre
   reporters: [ID]
   jacket: Upload
   data: Upload

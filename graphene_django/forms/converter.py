@@ -6,6 +6,7 @@ from graphene import ID, Boolean, Float, Int, List, String, UUID, Date, DateTime
 from .forms import GlobalIDFormField, GlobalIDMultipleChoiceField
 from ..utils import import_single_dispatch
 from ..types import Upload
+from ..converter import convert_choices_to_named_enum_with_descriptions
 
 
 singledispatch = import_single_dispatch()
@@ -17,6 +18,14 @@ def convert_form_field(field, force_required_false=False):
         "Don't know how to convert the Django form field %s (%s) "
         "to Graphene type" % (field, field.__class__)
     )
+
+
+# @convert_form_field.register(forms.TypedChoiceField)
+# def covnert_form_field_to_enum(field, force_required_false=False):
+#     print(field)
+#     print(dir(field))
+#     enum = convert_choices_to_named_enum_with_descriptions(name, field.choices)
+#     pass
 
 
 @convert_form_field.register(forms.fields.BaseTemporalField)
@@ -88,3 +97,20 @@ def convert_form_field_to_id(field, force_required_false=False):
 @convert_form_field.register(forms.ImageField)
 def convert_form_field_to_upload(field, force_required_false=False):
     return Upload(description=field.help_text, required=(not force_required_false) and field.required)
+
+
+class ModelToFormChoiceField(forms.ChoiceField):
+
+    def __init__(self, model, field_name, *args, **kwargs):
+        self._model = model
+        self.parent_field = model._meta.get_field(field_name)
+        super().__init__(choices=self.parent_field.choices, *args, **kwargs)
+
+
+@convert_form_field.register(ModelToFormChoiceField)
+def convert_form_field_to_int_2(field, force_required_false=False):
+    from graphene_django.converter import convert_django_field_with_choices
+    from graphene_django.registry import get_global_registry
+    registry = get_global_registry()
+    enum_type = type(convert_django_field_with_choices(field.parent_field, registry))
+    return enum_type(required=(not force_required_false) and field.required)

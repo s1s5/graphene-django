@@ -10,7 +10,7 @@ from graphql_relay import from_global_id
 
 from django import forms
 from django.utils.datastructures import MultiValueDict
-from django.forms.models import modelform_factory
+from django.forms.models import modelform_factory, ModelFormMetaclass
 
 # from graphene.types.inputobjecttype import (
 #     InputObjectTypeOptions,
@@ -20,9 +20,45 @@ from graphene.types.utils import yank_fields_from_attrs
 from graphene_django.registry import get_global_registry
 
 from ..types import ErrorType
-from .converter import convert_form_field
+from .converter import convert_form_field, ModelToFormChoiceField
 
 import natsort
+
+
+class CustomModelFormMetaclassCallback(object):
+    def __init__(self, model, s):
+        self.model = model
+        self.s = s
+
+    def __call__(self, f, **kwargs):
+        if f.name in self.s:
+            return ModelToFormChoiceField(self.model, f.name, **kwargs)
+        return f.formfield(**kwargs)
+
+
+class CustomModelFormMetaclass(ModelFormMetaclass):
+    def __new__(mcs, name, bases, attrs):
+        # print(mcs, name, bases, 'attrs=', attrs)
+        # print('attrs.get Meta', attrs.get('Meta'))
+        if 'Meta' in attrs:
+            # print(attrs['Meta'].model)
+            d = {}
+            for field in attrs['Meta'].model._meta.get_fields():
+                # print(field, field.name, type(field), getattr(field, 'choices', None))
+                if getattr(field, 'choices', None):
+                    # d[field.name] = lambda *args, **kwargs: ModelToFormChoiceField(attrs['Meta'].model, field.name)
+                    # d[field.name] = attrs['Meta'].model, field.name # lambda *args, **kwargs: ModelToFormChoiceField(attrs['Meta'].model, field.name)
+                    d[field.name] = ModelToFormChoiceField
+
+            # attrs['Meta'].field_classes = d
+            # attrs['formfield_callback'] = lambda f, **kwargs: ModelToFormChoiceField(attrs['Meta'].model, f.name, **kwargs) if f.name in d else f.formfield(**kwargs)
+            attrs['formfield_callback'] = CustomModelFormMetaclassCallback(attrs['Meta'].model, d)
+
+        return super().__new__(mcs, name, bases, attrs)
+
+
+class GrapheneModelForm(forms.BaseModelForm, metaclass=CustomModelFormMetaclass):
+    pass
 
 
 def fields_for_form(form, only_fields, exclude_fields, options={}, is_model_field=False):
@@ -37,7 +73,8 @@ def fields_for_form(form, only_fields, exclude_fields, options={}, is_model_fiel
 
         if is_not_in_only or is_excluded:
             continue
-
+        # print(form, dir(form._meta))
+        # print("convert", field, options)
         fields[name] = convert_form_field(field, **options)
     return fields
 
@@ -236,6 +273,7 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
     ):
         _form_class = form_class
         _modelform_factory_options = dict(
+            form=GrapheneModelForm,
             formfield_callback=formfield_callback, widgets=widgets, localized_fields=localized_fields,
             labels=labels, help_texts=help_texts, error_messages=error_messages,
             field_classes=field_classes)
