@@ -148,13 +148,13 @@ class DjangoFileFieldType(ObjectType):
     data = graphene.String()
 
     def resolve_name(root, info):
-        return root if root else None
+        return root.name if root else None
 
     def resolve_size(root, info):
         return root.size if root else None
 
     def resolve_url(root, info):
-        return root if root else None
+        return root.url if root else None
 
     def resolve_data(root, info):
         if not root:
