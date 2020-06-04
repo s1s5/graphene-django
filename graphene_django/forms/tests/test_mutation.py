@@ -1095,6 +1095,43 @@ enum ReporterReporterType {
         assert result.data['reporterFormMutation']['reporter'] == {'reporterType': 'A_1'}
     
 
+    def test_film_choices_form_none(self):
+        schema_str = str(Schema(types=[self.schema.get_type('ReporterFormMutationInput')]))
+        self.assertEqual(schema_str, '''schema {
+
+}
+
+input ReporterFormMutationInput {
+  reporterType: ReporterReporterType
+  formPrefix: String
+  clientMutationId: String
+}
+
+enum ReporterReporterType {
+  A_1
+  A_2
+}
+''')
+
+        result = self.schema.execute('''
+        mutation ReporterFormMutation($input: ReporterFormMutationInput!) {
+          reporterFormMutation(input: $input) {
+            errors {
+              field
+              messages
+            }
+            reporter {
+              reporterType
+            }
+          }
+        }
+        ''', variable_values={"input": {
+            "reporterType": None,
+        }})
+        assert result.errors == None
+        assert result.data['reporterFormMutation']['reporter'] == {'reporterType': None}
+    
+
 @pytest.mark.django_db
 class GetOrCreateModelMutationTests(TestCase):
     def setup_method(self, method):

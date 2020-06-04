@@ -99,12 +99,12 @@ def convert_form_field_to_upload(field, force_required_false=False):
     return Upload(description=field.help_text, required=(not force_required_false) and field.required)
 
 
-class ModelToFormChoiceField(forms.ChoiceField):
+class ModelToFormChoiceField(forms.TypedChoiceField):
 
     def __init__(self, model, field_name, *args, **kwargs):
         self._model = model
         self.parent_field = model._meta.get_field(field_name)
-        super().__init__(choices=self.parent_field.choices, *args, **kwargs)
+        super().__init__(choices=self.parent_field.choices, empty_value=None, *args, **kwargs)
 
 
 @convert_form_field.register(ModelToFormChoiceField)
