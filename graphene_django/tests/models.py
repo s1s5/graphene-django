@@ -28,7 +28,7 @@ class Film(models.Model):
         default="ot",
     )
     reporters = models.ManyToManyField("Reporter", related_name="films")
-    jacket = models.ImageField(upload_to='tmp/film/jacket', blank=True, null=True)
+    jacket_image = models.ImageField(upload_to='tmp/film/jacket', blank=True, null=True)
     data = models.FileField(upload_to='tmp/film/data')
     extra_data = models.BinaryField(editable=True)
     pet = models.ForeignKey(

@@ -9,6 +9,7 @@ from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.files.base import ContentFile
+from django.utils.datastructures import MultiValueDict
 
 from py.test import raises
 
@@ -627,7 +628,7 @@ class CreateModelMutationTests(TestCase):
         class FilmMutation(DjangoCreateModelMutation):
             class Meta:
                 model = Film
-                fields = ('genre', 'reporters', 'jacket', 'data', 'extra_data')
+                fields = ('genre', 'reporters', 'jacket_image', 'data', 'extra_data')
 
         class FilmDetailsMutation(DjangoCreateModelMutation):
             class Meta:
@@ -767,7 +768,7 @@ enum FilmGenre {
 input FilmMutationInput {
   genre: FilmGenre!
   reporters: [ID]!
-  jacket: Upload
+  jacketImage: Upload
   data: Upload!
   extraData: String!
   formPrefix: String
@@ -793,10 +794,9 @@ scalar Upload
         
         class CTX: pass
         context = CTX()
-        context.FILES = {
-            'jacket': SimpleUploadedFile(png_filename, bio.getvalue()),
-            'data': SimpleUploadedFile(txt_filename, fio.getvalue()),
-        }
+        context.FILES = MultiValueDict()
+        context.FILES['jacketImage'] = SimpleUploadedFile(png_filename, bio.getvalue())
+        context.FILES['data'] = SimpleUploadedFile(txt_filename, fio.getvalue())
 
         result = self.schema.execute(
             """ mutation AnyNameHere($input: FilmMutationInput!) {
@@ -815,7 +815,7 @@ scalar Upload
                                 }
                             }
                         }
-                        jacket {
+                        jacketImage {
                             name
                             size
                             url
@@ -836,7 +836,7 @@ scalar Upload
             variable_values={"input": {
                 "genre": "DO",
                 "reporters": [to_global_id('ReporterType', reporter.pk)],
-                "jacket": "",
+                "jacketImage": "",
                 "data": "",
                 "extraData": "Zm9v",
             }},
@@ -854,7 +854,7 @@ scalar Upload
                                    'url': 'tmp/film/data/{}'.format(txt_filename)},
                           'extraData': 'Zm9v',
                           'genre': 'DO',
-                          'jacket': {'height': 8,
+                          'jacketImage': {'height': 8,
                                      'name': 'tmp/film/jacket/{}'.format(png_filename),
                                      'size': 71,
                                      'url': 'tmp/film/jacket/{}'.format(png_filename),
@@ -868,7 +868,7 @@ scalar Upload
         self.assertEqual(film.extra_data, b'foo')
 
         film.data.delete()
-        film.jacket.delete()
+        film.jacket_image.delete()
 
     def test_many_prefix(self):
         schema_str = str(Schema(types=[self.schema.get_type('FilmMutationInput')]))
@@ -885,7 +885,7 @@ enum FilmGenre {
 input FilmMutationInput {
   genre: FilmGenre!
   reporters: [ID]!
-  jacket: Upload
+  jacketImage: Upload
   data: Upload!
   extraData: String!
   formPrefix: String
@@ -913,10 +913,9 @@ scalar Upload
 
         class CTX: pass
         context = CTX()
-        context.FILES = {
-            '{}-jacket'.format(prefix): SimpleUploadedFile(png_filename, bio.getvalue()),
-            '{}-data'.format(prefix): SimpleUploadedFile(txt_filename, fio.getvalue()),
-        }
+        context.FILES = MultiValueDict()
+        context.FILES['{}-jacketImage'.format(prefix)] = SimpleUploadedFile(png_filename, bio.getvalue())
+        context.FILES['{}-data'.format(prefix)] = SimpleUploadedFile(txt_filename, fio.getvalue())
 
         result = self.schema.execute(
             """ mutation AnyNameHere($input: FilmMutationInput!) {
@@ -935,7 +934,7 @@ scalar Upload
                                 }
                             }
                         }
-                        jacket {
+                        jacketImage {
                             name
                             size
                             url
@@ -956,13 +955,14 @@ scalar Upload
             variable_values={"input": {
                 "genre": "DO",
                 "reporters": [to_global_id('ReporterType', reporter.pk)],
-                "jacket": "",
+                "jacketImage": "",
                 "data": "",
                 "extraData": "Zm9v",
                 "formPrefix": prefix,
             }},
             context_value=context,
         )
+        # print(prefix)
         # print(result.errors)
         # print(result.data)
         self.assertIs(result.errors, None)
@@ -975,7 +975,7 @@ scalar Upload
                                    'url': 'tmp/film/data/{}'.format(txt_filename)},
                           'extraData': 'Zm9v',
                           'genre': 'DO',
-                          'jacket': {'height': 8,
+                          'jacketImage': {'height': 8,
                                      'name': 'tmp/film/jacket/{}'.format(png_filename),
                                      'size': 71,
                                      'url': 'tmp/film/jacket/{}'.format(png_filename),
@@ -989,7 +989,7 @@ scalar Upload
         self.assertEqual(film.extra_data, b'foo')
 
         film.data.delete()
-        film.jacket.delete()
+        film.jacket_image.delete()
 
 
 @pytest.mark.django_db
@@ -1560,7 +1560,7 @@ class UpdateModelMutationTests(TestCase):
         class FilmMutation(DjangoUpdateModelMutation):
             class Meta:
                 model = Film
-                fields = ('genre', 'reporters', 'jacket', 'data', 'extra_data')
+                fields = ('genre', 'reporters', 'jacket_image', 'data', 'extra_data')
 
         class FilmDetailsMutation(DjangoUpdateModelMutation):
             class Meta:
@@ -1766,7 +1766,7 @@ enum FilmGenre {
 input FilmMutationInput {
   genre: FilmGenre
   reporters: [ID]
-  jacket: Upload
+  jacketImage: Upload
   data: Upload
   extraData: String
   id: ID!
@@ -1788,7 +1788,7 @@ scalar Upload
             bio = io.BytesIO()
             img = Image.new('RGB', (16, 8))
             img.save(bio, format='png')
-            f.jacket.save(png_filename, ContentFile(bio.getvalue()), save=True)
+            f.jacket_image.save(png_filename, ContentFile(bio.getvalue()), save=True)
 
             f.extra_data = b'foo'
             f.save()
@@ -1801,7 +1801,7 @@ scalar Upload
                             messages
                         }
                         film {
-                            jacket {
+                            jacketImage {
                                 name
                             }
                             data {
@@ -1813,7 +1813,7 @@ scalar Upload
                 """,
                 variable_values={"input": {
                     "id": to_global_id('FilmType', f.pk),
-                    "jacket": None,
+                    "jacketImage": None,
                 }},
             )
             # print(result.errors)
@@ -1821,10 +1821,10 @@ scalar Upload
             self.assertIs(result.errors, None)
             self.assertEqual(result.data['filmMutation'],
                              {'errors': [], 'film': {
-                                 'jacket': {'name': 'tmp/film/jacket/{}'.format(png_filename)},
+                                 'jacketImage': {'name': 'tmp/film/jacket/{}'.format(png_filename)},
                                  'data': {'name': 'tmp/film/data/{}'.format(txt_filename)}}})
             f.data.delete()
-            f.jacket.delete()
+            f.jacket_image.delete()
         finally:
             txt_filename = os.path.join('tmp/film/data', txt_filename)
             png_filename = os.path.join('tmp/film/jacket', png_filename)

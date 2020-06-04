@@ -1227,7 +1227,7 @@ def test_should_fields_converted():
             exclude = ()
             interfaces = (Node,)
             # filter_fields = ("genre",)
-            fields = ("jacket", "data", "extra_data")
+            fields = ("jacket_image", "data", "extra_data")
 
     class Query(graphene.ObjectType):
         films = DjangoConnectionField(FilmType)
@@ -1253,7 +1253,7 @@ def test_should_fields_converted():
         bio = io.BytesIO()
         img = Image.new('RGB', (16, 8))
         img.save(bio, format='png')
-        f.jacket.save(png_filename, ContentFile(bio.getvalue()), save=True)
+        f.jacket_image.save(png_filename, ContentFile(bio.getvalue()), save=True)
 
         f.extra_data = b'foo'
         f.save()
@@ -1269,7 +1269,7 @@ def test_should_fields_converted():
                 films {
                     edges {
                         node {
-                            jacket {
+                            jacketImage {
                                 name
                                 size
                                 url
@@ -1291,7 +1291,7 @@ def test_should_fields_converted():
 
         expected = {
             "films": {"edges": [{"node": {
-                "jacket": {
+                "jacketImage": {
                     "name": png_filename,
                     "size": 71,
                     "url": png_filename,
@@ -1313,7 +1313,7 @@ def test_should_fields_converted():
         assert result.data == expected
 
         f.data.delete()
-        f.jacket.delete()
+        f.jacket_image.delete()
 
     finally:
         if os.path.exists(txt_filename):

@@ -5,6 +5,7 @@ import graphene
 from graphene import Field, InputField
 from graphene.relay.mutation import ClientIDMutation
 from graphene.types.mutation import MutationOptions
+from graphene.utils.str_converters import to_camel_case
 
 from graphql_relay import from_global_id
 
@@ -134,6 +135,15 @@ class BaseDjangoFormMutation(ClientIDMutation):
             except Exception:
                 continue
 
+        if 'files' in form_kwargs:
+            for name, field in form_class.base_fields.items():
+                key = '{}-{}'.format(form_kwargs['prefix'], to_camel_case(name)) if form_kwargs.get('prefix') else to_camel_case(name)
+                if key in form_kwargs['files'] and name != key:
+                    try:
+                        form_kwargs['files'].setlist(name, form_kwargs['files'].getlist(key))
+                    except AttributeError:
+                        form_kwargs['files'][name] = form_kwargs['files'][key]
+
         return form_class(**form_kwargs)
 
     @classmethod
@@ -155,6 +165,7 @@ class BaseDjangoFormMutation(ClientIDMutation):
                         kwargs["files"].setlist(real_key, info.context.FILES.getlist(key))
                     except AttributeError:
                         kwargs["files"][real_key] = info.context.FILES.get(key)
+
             else:
                 kwargs["files"] = info.context.FILES
 
