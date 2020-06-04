@@ -1028,7 +1028,7 @@ class ChoiceMutationTests(TestCase):
 }
 
 input ReporterMutationInput {
-  reporterType: ReporterReporterType!
+  reporterType: ReporterReporterType
   formPrefix: String
   clientMutationId: String
 }
@@ -1065,7 +1065,7 @@ enum ReporterReporterType {
 }
 
 input ReporterFormMutationInput {
-  reporterType: ReporterReporterType!
+  reporterType: ReporterReporterType
   formPrefix: String
   clientMutationId: String
 }

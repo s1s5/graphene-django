@@ -32,7 +32,7 @@ class CustomModelFormMetaclassCallback(object):
 
     def __call__(self, f, **kwargs):
         if f.name in self.s:
-            return ModelToFormChoiceField(self.model, f.name, **kwargs)
+            return ModelToFormChoiceField(self.model, f.name, required=not f.null, **kwargs)
         return f.formfield(**kwargs)
 
 
