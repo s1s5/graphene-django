@@ -86,7 +86,7 @@ class BaseDjangoFormMutation(ClientIDMutation):
 
     @classmethod
     def __init_subclass_with_meta__(cls, *args, **kwargs):
-        input_fields = kwargs.pop('input_fields')
+        input_fields = kwargs.pop('input_fields', {})
         if 'form_prefix' in input_fields:
             raise Exception('_prefix is reserved by BaseDjangoFormMutation')
         input_fields['form_prefix'] = graphene.String()
