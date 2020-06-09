@@ -1944,3 +1944,42 @@ class DeleteModelMutationTests(TestCase):
         # print(result.data)
         assert not result.errors
         assert result.data == {'petDelete': {'errors': [{'field': '_All__', 'messages': ['Select a valid choice. That choice is not one of the available choices.']}], 'deletedId': None}}
+
+
+    def test_model_delete_mutation_form(self):
+        pet = Pet.objects.create(name='name', age=0)
+
+        class PetDeleteForm(forms.ModelForm):
+            class Meta:
+                model = Pet
+                fields = ()
+
+            def save(self):
+                gid = to_global_id('PetType', self.instance.pk)
+                self.instance.delete()
+                return gid
+
+        class PetMutation(DjangoDeleteModelMutation):
+            class Meta:
+                form_class = PetDeleteForm
+
+        class Mutation(ObjectType):
+            pet_delete = PetMutation.Field()
+
+        schema = Schema(mutation=Mutation)
+
+        result = schema.execute(
+            """ mutation PetMutation($pk: ID!) {
+                petDelete(input: { id: $pk }) {
+                    deletedId
+                }
+            }
+            """,
+            variable_values={"pk": to_global_id('PetType', pet.pk)},
+        )
+
+        assert not result.errors
+        assert result.data == {'petDelete': {'deletedId': 'UGV0VHlwZTox'}}
+        assert Pet.objects.all().count() == 0
+
+

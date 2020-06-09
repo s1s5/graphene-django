@@ -435,6 +435,7 @@ class DjangoDeleteModelMutation(BaseDjangoFormMutation):
             model=None,
             form_class=None,
             only_fields=(), exclude_fields=(),
+            add_id=True,
             **options
     ):
         org_form_class = form_class
@@ -443,6 +444,8 @@ class DjangoDeleteModelMutation(BaseDjangoFormMutation):
             input_fields = fields_for_form(form, only_fields, exclude_fields)
             if not model:
                 model = form_class._meta.model
+            if add_id:
+                input_fields["id"] = graphene.Field(graphene.ID, required=True)
         else:
             form_class = modelform_factory(model, fields=(), exclude=())
             input_fields = OrderedDict()
