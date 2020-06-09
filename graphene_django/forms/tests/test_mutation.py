@@ -1938,8 +1938,9 @@ class DeleteModelMutationTests(TestCase):
                 }
             }
             """,
-            variable_values={"pk": to_global_id('PetType', 1)},
+            variable_values={"pk": to_global_id('PetType', 0)},
         )
-
+        # print(result.errors)
+        # print(result.data)
         assert not result.errors
-        assert result.data == {'petDelete': {'errors': [{'field': 'id', 'messages': ['no id found']}], 'deletedId': None}}
+        assert result.data == {'petDelete': {'errors': [{'field': '_All__', 'messages': ['Select a valid choice. That choice is not one of the available choices.']}], 'deletedId': None}}

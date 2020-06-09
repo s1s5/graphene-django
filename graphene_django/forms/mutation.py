@@ -7,7 +7,7 @@ from graphene.relay.mutation import ClientIDMutation
 from graphene.types.mutation import MutationOptions
 from graphene.utils.str_converters import to_camel_case
 
-from graphql_relay import from_global_id
+from graphql_relay import from_global_id, to_global_id
 
 from django import forms
 from django.utils.datastructures import MultiValueDict
@@ -111,8 +111,16 @@ class BaseDjangoFormMutation(ClientIDMutation):
     def get_form(cls, root, info, **input):
         registry = get_global_registry()
 
-        form_kwargs = cls.get_form_kwargs(root, info, **input)
         form_class = cls.get_form_class(root, info, **input)
+
+        try:
+            form_kwargs = cls.get_form_kwargs(root, info, **input)
+        except Exception as e:
+                form = form_class()
+                form.cleaned_data = {}
+                form.full_clean()
+                form.add_error(None, e)
+                return form
 
         for name, field in form_class.base_fields.items():
             try:
@@ -146,6 +154,7 @@ class BaseDjangoFormMutation(ClientIDMutation):
 
         return form_class(**form_kwargs)
 
+
     @classmethod
     def get_form_kwargs(cls, root, info, **input):
         prefix = input.pop('form_prefix', None)
@@ -173,9 +182,12 @@ class BaseDjangoFormMutation(ClientIDMutation):
         if pk:
             try:
                 pk = from_global_id(pk)[1]
-            except Exception:
-                raise forms.ValidationError('invalid id format')
-            instance = cls._meta.model._default_manager.get(pk=pk)
+            # except Exception:
+            #     raise forms.ValidationError('invalid id format')
+            # try:
+                instance = cls._meta.model._default_manager.get(pk=pk)
+            except cls._meta.model.DoesNotExist:
+                raise forms.ValidationError(forms.ModelChoiceField.default_error_messages['invalid_choice'], code='invalid_choice')
             kwargs["instance"] = instance
 
         return kwargs
@@ -411,7 +423,7 @@ class DjangoUpdateOrCreateModelMutation(DjangoCreateModelMutation):
 
 
 
-class DjangoDeleteModelMutation(ClientIDMutation):
+class DjangoDeleteModelMutation(BaseDjangoFormMutation):
     class Meta:
         abstract = True
 
@@ -421,29 +433,49 @@ class DjangoDeleteModelMutation(ClientIDMutation):
     def __init_subclass_with_meta__(
             cls,
             model=None,
+            form_class=None,
+            only_fields=(), exclude_fields=(),
             **options
     ):
-        input_fields = OrderedDict()
-        input_fields["id"] = graphene.Field(graphene.ID, required=True)
+        org_form_class = form_class
+        if form_class:
+            form = form_class()
+            input_fields = fields_for_form(form, only_fields, exclude_fields)
+            if not model:
+                model = form_class._meta.model
+        else:
+            form_class = modelform_factory(model, fields=(), exclude=())
+            input_fields = OrderedDict()
+            input_fields["id"] = graphene.Field(graphene.ID, required=True)
 
         output_fields = OrderedDict()
         output_fields['deleted_id'] = graphene.Field(graphene.ID)
 
         _meta = MutationOptions(cls)
         _meta.model = model
+        _meta.form_class = form_class
+        _meta.org_form_class = org_form_class
         _meta.fields = yank_fields_from_attrs(output_fields, _as=Field)
+        _meta.only_fields = only_fields
+        _meta.exclude_fields = exclude_fields
 
         super(DjangoDeleteModelMutation, cls).__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
         )
 
     @classmethod
-    def mutate_and_get_payload(cls, root, info, **input):
-        _id = input['id']
-        try:
-            obj = cls._meta.model.objects.get(pk=from_global_id(_id)[1])
-        except Exception:
-            return cls(errors=[ErrorType(field='id', messages=['no id found'])])
+    def perform_mutate(cls, form, info):
+        registry = get_global_registry()
+        model_type = registry.get_type_for_model(cls._meta.model)
 
-        obj.delete()
-        return cls(errors=[], deleted_id=_id)
+        obj = form.save()
+
+        if isinstance(obj, str):
+            gid = obj
+        else:
+            gid = to_global_id(model_type.__name__, obj.pk)
+
+        if not cls._meta.org_form_class:
+            obj.delete()
+
+        return cls(errors=[], deleted_id=gid)
