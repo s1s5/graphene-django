@@ -471,12 +471,8 @@ class DjangoDeleteModelMutation(BaseDjangoFormMutation):
         registry = get_global_registry()
         model_type = registry.get_type_for_model(cls._meta.model)
 
+        gid = to_global_id(model_type.__name__, form.instance.pk)
         obj = form.save()
-
-        if isinstance(obj, str):
-            gid = obj
-        else:
-            gid = to_global_id(model_type.__name__, obj.pk)
 
         if not cls._meta.org_form_class:
             obj.delete()
