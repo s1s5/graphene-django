@@ -340,7 +340,7 @@ class DjangoConnectionField(ConnectionField):
         if isinstance(last, int):
             logger.warning('performance warning queryset.count called')
             index = max(0, queryset.count() - last)
-            has_next_page = queryset[:index].exists()
+            has_previous_page = queryset[:index].exists()
             queryset = queryset[index:]
 
         edges = [
