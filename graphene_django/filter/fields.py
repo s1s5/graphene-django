@@ -59,8 +59,6 @@ class DjangoFilterConnectionField(DjangoConnectionField):
             connection, iterable, info, args
         )
         filter_kwargs = {k: v for k, v in args.items() if k in filtering_args}
-        # print("fields.py resolve_queryset : args=", args)
-        # print('filter_kwargs => ', filter_kwargs)
         return filterset_class(data=filter_kwargs, queryset=qs, request=info.context).qs
 
     def get_queryset_resolver(self):

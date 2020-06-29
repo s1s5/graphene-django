@@ -338,6 +338,11 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
         edge_type = model_type._meta.connection_field_class(model_type).type.Edge
         output_fields['edge'] = graphene.Field(edge_type)
 
+        connection_kw_args = OrderedDict(model_type._meta.connection_field_class(model_type).args)
+        [connection_kw_args.pop(x) for x in ['before', 'after', 'first', 'last']]
+        output_fields['before'] = graphene.Field(edge_type, **connection_kw_args)
+        output_fields['after'] = graphene.Field(edge_type, **connection_kw_args)
+
         _meta = DjangoModelMutationOptions(cls)
         _meta.form_class = form_class
         _meta.model = model
@@ -355,6 +360,18 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
         super(DjangoCreateModelMutation, cls).__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
         )
+
+    @classmethod
+    def resolve_before(cls, root, info, *args, **kwargs):
+        resolver = cls._meta.connection_field_class.get_resolver(lambda *args, **kwargs: cls._meta.connection_field_class.get_manager())
+        edges = resolver(cls._meta.connection_field_class, info, *args, last=1, before=root.edge.cursor, **kwargs).edges
+        return edges[0] if edges else None
+
+    @classmethod
+    def resolve_after(cls, root, info, *args, **kwargs):
+        resolver = cls._meta.connection_field_class.get_resolver(lambda *args, **kwargs: cls._meta.connection_field_class.get_manager())
+        edges = resolver(cls._meta.connection_field_class, info, *args, first=1, after=root.edge.cursor, **kwargs).edges
+        return edges[0] if edges else None
 
     @classmethod
     def create_result(cls, form, info, obj):

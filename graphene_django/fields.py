@@ -249,7 +249,7 @@ class DjangoConnectionField(ConnectionField):
 
     @classmethod
     def resolve_queryset(cls, connection, queryset, info, args):
-        # print("resovle queryset : ", cls, queryset)
+        # print("resolve queryset : ", cls, queryset)
         # queryset is the resolved iterable from ObjectType
         # queryset = cls.optimize_queryset(connection, queryset, info, args)
         return connection._meta.node.get_queryset(queryset, info)

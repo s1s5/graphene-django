@@ -1,3 +1,4 @@
+import django_filters
 import pytest
 import io
 import os
@@ -16,6 +17,7 @@ from py.test import raises
 from graphene import ObjectType, Schema, String, Field
 from graphene_django import DjangoObjectType
 from graphene_django.tests.models import Film, FilmDetails, Pet, Reporter, Article
+from graphene_django.filter.utils import MultipleOrderingFilter
 
 from graphql_relay import to_global_id
 
@@ -595,10 +597,27 @@ class ModelFormMutationTests(TestCase):
 @pytest.mark.django_db
 class CreateModelMutationTests(TestCase):
     def setup_method(self, method):
+        class PetFilterSet(django_filters.FilterSet):
+            class Meta:
+                model = Pet
+                fields = {
+                    'name': ['exact', 'gt'],
+                    'age': ['exact', 'gt', 'lt'],
+                }
+
+            order_by = MultipleOrderingFilter(
+                fields=(
+                    ('name', 'name'),
+                    ('age', 'age'),
+                    ('pk', 'pk'),
+                )
+            )
+
         class PetType(DjangoObjectType):
             class Meta:
                 model = Pet
                 fields = "__all__"
+                filterset_class = PetFilterSet
 
         class FilmType(DjangoObjectType):
             class Meta:
@@ -990,6 +1009,53 @@ scalar Upload
 
         film.data.delete()
         film.jacket_image.delete()
+
+    def test_basic_before(self):
+        # schema_str = str(Schema(types=[self.schema.get_type('PetMutationPayload')]))
+        # print(schema_str)
+
+        for i in range(8, 13):
+            if i == 10:
+                continue
+            Pet.objects.create(name='age{}'.format(i), age=i)
+
+        result = self.schema.execute(
+            """ mutation PetMutation {
+                petMutation(input: { name: "Mia", age: 10 }) {
+                    errors {
+                        field
+                        messages
+                    }
+                    pet {
+                        name
+                        age
+                    }
+                    before(orderBy: "-age") {
+                        cursor
+                        node {
+                            age
+                        }
+                    }
+                    after(orderBy: "age") {
+                        cursor
+                        node {
+                            age
+                        }
+                    }
+                }
+            }
+            """
+        )
+        # print(result.errors)
+        # print(result.data)
+
+        self.assertIs(result.errors, None)
+
+        data = result.data['petMutation']
+        self.assertEqual(data['errors'], [])
+        self.assertEqual(data['before'], {'cursor': '0x3', 'node': {'age': 11}})
+        self.assertEqual(data['after'], {'cursor': '0x3', 'node': {'age': 11}})
+        self.assertEqual(data["pet"], {'name': 'Mia', 'age': 10})
 
 
 @pytest.mark.django_db
