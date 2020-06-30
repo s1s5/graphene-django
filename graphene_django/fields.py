@@ -327,11 +327,11 @@ class DjangoConnectionField(ConnectionField):
         has_next_page, has_previous_page = False, False
         if before:
             queryset, qs_ex = cls.split_query(queryset, order_by, before)
-            has_next_page = qs_ex.exists()
+            has_next_page = True
 
         if after:
             qs_ex, queryset = cls.split_query(queryset, order_by, after)
-            has_previous_page = qs_ex.exists()
+            has_previous_page = True
 
         if isinstance(first, int):
             has_next_page = queryset[first:].exists()

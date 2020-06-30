@@ -132,3 +132,4 @@ py.test -s -v graphene_django/tests/test_query.py
 - async websocket consumersのcontext
 - DjangoObjectTypeのFieldの見直し、idでデフォルトで引けるようにするのか？slugにすべき？resolveかget_querysetは必ず呼び出すようにしておきたい
 - 自動でselect_related, prefetch_related
+- before, afterがある時のhas_previous_page, has_next_pageのテスト
