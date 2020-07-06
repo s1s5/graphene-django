@@ -295,6 +295,8 @@ class DjangoConnectionField(ConnectionField):
                 field = order
                 expr = '{}__lt'.format(field)
             o = getattr(instance, field)
+            if o is None:
+                continue  # TODO: これでいいのか・・・？
             if q is None:
                 cq = Q(**{expr: o})
                 q = Q(**{field: o})
