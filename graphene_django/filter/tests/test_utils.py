@@ -51,8 +51,8 @@ class TestMultipleOrderingFilter:
         schema = graphene.Schema(query=Query)
 
         query = """
-        query {
-            pets(first: 1, orderBy: ["-pk"]) {
+        query($first: Int, $orderBy: [String]) {
+            pets(first: $first, orderBy: $orderBy) {
                  edges {
                      node {
                          name
@@ -63,7 +63,9 @@ class TestMultipleOrderingFilter:
         }
         """
 
-        result = schema.execute(query)
+        result = schema.execute(query, variable_values={
+            "first": 1, "orderBy": ["-pk"],
+        })
         assert not result.errors
         assert result.data == {'pets': {'edges': [{'node': {'name': 'name(5)', 'age': 5}}]}}
 
@@ -79,8 +81,8 @@ class TestMultipleOrderingFilter:
         schema = graphene.Schema(query=Query)
 
         query = """
-        query {
-            pets(orderBy: ["age", "-pk"]) {
+        query($orderBy: [String]) {
+            pets(orderBy: $orderBy) {
                  edges {
                      node {
                          name
@@ -91,6 +93,8 @@ class TestMultipleOrderingFilter:
         }
         """
 
-        result = schema.execute(query)
+        result = schema.execute(query, variable_values={
+            "orderBy": ["age", "-pk"],
+        })
         assert not result.errors
         assert result.data == {'pets': {'edges': [{'node': {'name': 'name(2)', 'age': 1}}, {'node': {'name': 'name(1)', 'age': 1}}, {'node': {'name': 'name(4)', 'age': 2}}, {'node': {'name': 'name(3)', 'age': 2}}, {'node': {'name': 'name(5)', 'age': 3}}]}}
