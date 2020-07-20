@@ -1,6 +1,8 @@
 from django import forms
 from django.core.exceptions import ImproperlyConfigured
 
+from django_filters.fields import BaseCSVField
+
 from graphene import ID, Boolean, Float, Int, List, String, UUID, Date, DateTime, Time
 
 from .forms import GlobalIDFormField, GlobalIDMultipleChoiceField
@@ -114,3 +116,8 @@ def convert_form_field_to_int_2(field, force_required_false=False):
     registry = get_global_registry()
     enum_type = type(convert_django_field_with_choices(field.parent_field, registry))
     return enum_type(required=(not force_required_false) and field.required)
+
+
+@convert_form_field.register(BaseCSVField)
+def convert_base_csv_field(field, force_required_false=False):
+    return List(String, required=(not force_required_false) and field.required)

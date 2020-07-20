@@ -311,7 +311,10 @@ class DjangoConnectionField(ConnectionField):
     def connection_from_queryset(cls, queryset, args, connection_type,
                                  edge_type, pageinfo_type):
         if 'order_by' in args and args['order_by']:  # TODO: order_byは固定・・・
-            order_by = args['order_by'].split(',')
+            if isinstance(args['order_by'], str):
+                order_by = args['order_by'].split(',')
+            else:
+                order_by = args['order_by']
         elif getattr(queryset.model._meta, 'ordering', None):
             order_by = queryset.model._meta.ordering
         else:

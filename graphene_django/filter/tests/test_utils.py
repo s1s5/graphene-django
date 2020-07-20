@@ -13,7 +13,7 @@ class MyFilterSet(django_filters.FilterSet):
     class Meta:
         model = models.Pet
         fields = {
-            'name': ['exact', 'icontains', 'istartswith'],
+            'name': ['exact', 'icontains', 'istartswith', 'in'],
         }
 
     order_by = utils.MultipleOrderingFilter(
@@ -52,7 +52,7 @@ class TestMultipleOrderingFilter:
 
         query = """
         query {
-            pets(first: 1, orderBy: "-pk") {
+            pets(first: 1, orderBy: ["-pk"]) {
                  edges {
                      node {
                          name
@@ -80,7 +80,7 @@ class TestMultipleOrderingFilter:
 
         query = """
         query {
-            pets(orderBy: "age,-pk") {
+            pets(orderBy: ["age", "-pk"]) {
                  edges {
                      node {
                          name

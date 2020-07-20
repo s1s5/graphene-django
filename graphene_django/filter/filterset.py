@@ -43,7 +43,15 @@ GRAPHENE_FILTER_SET_OVERRIDES = {
 
 
 # from django_filters.fields import ChoiceField, MultipleChoiceField
-from django_filters.filters import ChoiceFilter, MultipleChoiceFilter, ModelMultipleChoiceFilter
+from django_filters.filters import ChoiceFilter, MultipleChoiceFilter, ModelMultipleChoiceFilter, BaseCSVFilter
+from django_filters.widgets import BaseCSVWidget
+
+class CustomBaseCSVWidget(BaseCSVWidget):
+    def value_from_datadict(self, data, files, name):
+        return data.get(name)
+        # value = super().value_from_datadict(data, files, name)
+        # return value
+
 
 # class GrapheneChoiceField(ChoiceField):
 #     def __init__(self, *args, **kwargs):
@@ -81,6 +89,17 @@ class GrapheneFilterSetMixin(BaseFilterSet):
     #     klass = super().get_form_class()
     #     print('get_form_class', klass, self._meta.model, list(self.filters.items()))
     #     return klass
+
+    @classmethod
+    def get_filters(cls):
+        filters = super().get_filters()
+        for name, filter in filters.items():
+            # print(name, filter, getattr(filter.field, 'choices', None))
+            if isinstance(filter, BaseCSVFilter):
+                # print(filter.field)
+                filter.field.widget = CustomBaseCSVWidget()
+
+        return filters
 
     @classmethod
     def filter_for_lookup(cls, field, lookup_type):
