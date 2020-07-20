@@ -12,10 +12,11 @@ from ..converter import convert_choices_to_named_enum_with_descriptions
 
 
 singledispatch = import_single_dispatch()
+default_force_rquired_false = True
 
 
 @singledispatch
-def convert_form_field(field, force_required_false=False):
+def convert_form_field(field, force_required_false=default_force_rquired_false):
     raise ImproperlyConfigured(
         "Don't know how to convert the Django form field %s (%s) "
         "to Graphene type" % (field, field.__class__)
@@ -23,7 +24,7 @@ def convert_form_field(field, force_required_false=False):
 
 
 # @convert_form_field.register(forms.TypedChoiceField)
-# def covnert_form_field_to_enum(field, force_required_false=False):
+# def covnert_form_field_to_enum(field, force_required_false=default_force_rquired_false):
 #     print(field)
 #     print(dir(field))
 #     enum = convert_choices_to_named_enum_with_descriptions(name, field.choices)
@@ -38,66 +39,66 @@ def convert_form_field(field, force_required_false=False):
 @convert_form_field.register(forms.ChoiceField)
 @convert_form_field.register(forms.RegexField)
 @convert_form_field.register(forms.Field)
-def convert_form_field_to_string(field, force_required_false=False):
+def convert_form_field_to_string(field, force_required_false=default_force_rquired_false):
     return String(description=field.help_text, required=(not force_required_false) and field.required)
 
 
 @convert_form_field.register(forms.UUIDField)
-def convert_form_field_to_uuid(field, force_required_false=False):
+def convert_form_field_to_uuid(field, force_required_false=default_force_rquired_false):
     return UUID(description=field.help_text, required=(not force_required_false) and field.required)
 
 
 @convert_form_field.register(forms.IntegerField)
 @convert_form_field.register(forms.NumberInput)
-def convert_form_field_to_int(field, force_required_false=False):
+def convert_form_field_to_int(field, force_required_false=default_force_rquired_false):
     return Int(description=field.help_text, required=(not force_required_false) and field.required)
 
 
 @convert_form_field.register(forms.BooleanField)
-def convert_form_field_to_boolean(field, force_required_false=False):
+def convert_form_field_to_boolean(field, force_required_false=default_force_rquired_false):
     return Boolean(description=field.help_text, required=(not force_required_false) and field.required)
 
 
 @convert_form_field.register(forms.NullBooleanField)
-def convert_form_field_to_nullboolean(field, force_required_false=False):
+def convert_form_field_to_nullboolean(field, force_required_false=default_force_rquired_false):
     return Boolean(description=field.help_text)
 
 
 @convert_form_field.register(forms.DecimalField)
 @convert_form_field.register(forms.FloatField)
-def convert_form_field_to_float(field, force_required_false=False):
+def convert_form_field_to_float(field, force_required_false=default_force_rquired_false):
     return Float(description=field.help_text, required=(not force_required_false) and field.required)
 
 
 @convert_form_field.register(forms.ModelMultipleChoiceField)
 @convert_form_field.register(GlobalIDMultipleChoiceField)
-def convert_form_field_to_list(field, force_required_false=False):
+def convert_form_field_to_list(field, force_required_false=default_force_rquired_false):
     return List(ID, required=(not force_required_false) and field.required)
 
 @convert_form_field.register(forms.DateField)
-def convert_form_field_to_date(field, force_required_false=False):
+def convert_form_field_to_date(field, force_required_false=default_force_rquired_false):
     return Date(description=field.help_text, required=(not force_required_false) and field.required)
 
 
 @convert_form_field.register(forms.DateTimeField)
-def convert_form_field_to_datetime(field, force_required_false=False):
+def convert_form_field_to_datetime(field, force_required_false=default_force_rquired_false):
     return DateTime(description=field.help_text, required=(not force_required_false) and field.required)
 
 
 @convert_form_field.register(forms.TimeField)
-def convert_form_field_to_time(field, force_required_false=False):
+def convert_form_field_to_time(field, force_required_false=default_force_rquired_false):
     return Time(description=field.help_text, required=(not force_required_false) and field.required)
 
 
 @convert_form_field.register(forms.ModelChoiceField)
 @convert_form_field.register(GlobalIDFormField)
-def convert_form_field_to_id(field, force_required_false=False):
+def convert_form_field_to_id(field, force_required_false=default_force_rquired_false):
     return ID(required=(not force_required_false) and field.required)
 
 
 @convert_form_field.register(forms.FileField)
 @convert_form_field.register(forms.ImageField)
-def convert_form_field_to_upload(field, force_required_false=False):
+def convert_form_field_to_upload(field, force_required_false=default_force_rquired_false):
     return Upload(description=field.help_text, required=(not force_required_false) and field.required)
 
 
@@ -110,7 +111,7 @@ class ModelToFormChoiceField(forms.TypedChoiceField):
 
 
 @convert_form_field.register(ModelToFormChoiceField)
-def convert_form_field_to_int_2(field, force_required_false=False):
+def convert_form_field_to_int_2(field, force_required_false=default_force_rquired_false):
     from graphene_django.converter import convert_django_field_with_choices
     from graphene_django.registry import get_global_registry
     registry = get_global_registry()
@@ -119,5 +120,5 @@ def convert_form_field_to_int_2(field, force_required_false=False):
 
 
 @convert_form_field.register(BaseCSVField)
-def convert_base_csv_field(field, force_required_false=False):
+def convert_base_csv_field(field, force_required_false=default_force_rquired_false):
     return List(String, required=(not force_required_false) and field.required)
