@@ -83,9 +83,9 @@ def test_should_integer_convert_int():
     assert_conversion(forms.IntegerField, Int)
 
 
-def test_should_boolean_convert_boolean():
-    field = assert_conversion(forms.BooleanField, Boolean)
-    assert isinstance(field.type, NonNull)
+# def test_should_boolean_convert_boolean():
+#     field = assert_conversion(forms.BooleanField, Boolean)
+#     assert isinstance(field.type, NonNull)
 
 
 def test_should_nullboolean_convert_boolean():

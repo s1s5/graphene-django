@@ -684,8 +684,8 @@ class CreateModelMutationTests(TestCase):
 }
 
 input PetMutationInput {
-  name: String!
-  age: Int!
+  name: String
+  age: Int
   formPrefix: String
   clientMutationId: String
 }
@@ -730,8 +730,8 @@ input PetMutationInput {
 }
 
 input FilmDetailsMutationInput {
-  location: String!
-  film: ID!
+  location: String
+  film: ID
   formPrefix: String
   clientMutationId: String
 }
@@ -785,11 +785,11 @@ enum FilmGenre {
 }
 
 input FilmMutationInput {
-  genre: FilmGenre!
-  reporters: [ID]!
+  genre: FilmGenre
+  reporters: [ID]
   jacketImage: Upload
-  data: Upload!
-  extraData: String!
+  data: Upload
+  extraData: String
   formPrefix: String
   clientMutationId: String
 }
@@ -902,11 +902,11 @@ enum FilmGenre {
 }
 
 input FilmMutationInput {
-  genre: FilmGenre!
-  reporters: [ID]!
+  genre: FilmGenre
+  reporters: [ID]
   jacketImage: Upload
-  data: Upload!
-  extraData: String!
+  data: Upload
+  extraData: String
   formPrefix: String
   clientMutationId: String
 }
