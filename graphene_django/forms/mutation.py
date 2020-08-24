@@ -187,13 +187,11 @@ class BaseDjangoFormMutation(ClientIDMutation):
                 model_type = registry.get_type_for_model(cls._meta.model)
                 if type_name != model_type._meta.name:
                     raise cls._meta.model.DoesNotExist()
-            # except Exception:
-            #     raise forms.ValidationError('invalid id format')
-            # try:
                 instance = cls._meta.model._default_manager.get(pk=pk)
+
+                kwargs["instance"] = instance
             except cls._meta.model.DoesNotExist:
                 raise forms.ValidationError(forms.ModelChoiceField.default_error_messages['invalid_choice'], code='invalid_choice')
-            kwargs["instance"] = instance
 
         return kwargs
 
