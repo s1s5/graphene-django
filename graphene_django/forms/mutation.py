@@ -181,7 +181,12 @@ class BaseDjangoFormMutation(ClientIDMutation):
         pk = input.pop("id", None)
         if pk:
             try:
-                pk = from_global_id(pk)[1]
+                type_name, pk = from_global_id(pk)
+
+                registry = get_global_registry()
+                model_type = registry.get_type_for_model(cls._meta.model)
+                if type_name != model_type._meta.name:
+                    raise cls._meta.model.DoesNotExist()
             # except Exception:
             #     raise forms.ValidationError('invalid id format')
             # try:
