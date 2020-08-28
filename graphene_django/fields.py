@@ -294,7 +294,14 @@ class DjangoConnectionField(ConnectionField):
             else:
                 field = order
                 expr = '{}__lt'.format(field)
-            o = getattr(instance, field)
+
+            try:
+                o = instance
+                for f in field.split('__'):
+                    o = getattr(o, f)
+            except Exception:
+                o = None
+
             if o is None:
                 continue  # TODO: これでいいのか・・・？
             if q is None:
