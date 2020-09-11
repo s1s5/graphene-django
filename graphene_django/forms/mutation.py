@@ -84,13 +84,16 @@ class BaseDjangoFormMutation(ClientIDMutation):
     class Meta:
         abstract = True
 
+    form_is_valid = graphene.Boolean()
+
     @classmethod
     def __init_subclass_with_meta__(cls, *args, **kwargs):
         input_fields = kwargs.pop('input_fields', {})
         if 'form_prefix' in input_fields:
             raise Exception('_prefix is reserved by BaseDjangoFormMutation')
         input_fields['form_prefix'] = graphene.String()
-        super(BaseDjangoFormMutation, cls).__init_subclass_with_meta__(*args, input_fields=input_fields, **kwargs)
+        super(BaseDjangoFormMutation, cls).__init_subclass_with_meta__(
+            *args, input_fields=input_fields, **kwargs)
 
 
     @classmethod
@@ -101,7 +104,7 @@ class BaseDjangoFormMutation(ClientIDMutation):
             return cls.perform_mutate(form, info)
         else:
             errors = ErrorType.from_errors(form.errors)
-            return cls(errors=errors)
+            return cls(errors=errors, form_is_valid=False)
 
     @classmethod
     def get_form_class(cls, root, info, **input):
@@ -232,7 +235,7 @@ class DjangoFormMutation(BaseDjangoFormMutation):
     @classmethod
     def perform_mutate(cls, form, info):
         form.save()
-        return cls(errors=[], **{
+        return cls(errors=[], form_is_valid=True, **{
             key: value
             for key, value in form.cleaned_data.items()
             if cls._check_form_key(key)})
@@ -247,12 +250,12 @@ class DjangoFormMutation(BaseDjangoFormMutation):
             errors = ErrorType.from_errors(form.errors)
             if form.prefix:
                 p = len(form.prefix) + 1
-                return cls(errors=errors, **{
+                return cls(errors=errors, form_is_valid=False, **{
                     key[p:] : value
                     for key, value in form.data.items()
                     if cls._check_form_key(key)})
             else:
-                return cls(errors=errors, **{
+                return cls(errors=errors, form_is_valid=False, **{
                     key: value
                     for key, value in form.data.items()
                     if cls._check_form_key(key)})
@@ -385,7 +388,7 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
                 node=obj,
             )
         }
-        return cls(errors=[], **kwargs)
+        return cls(errors=[], form_is_valid=True, **kwargs)
 
     @classmethod
     def perform_mutate(cls, form, info):
@@ -411,7 +414,7 @@ class DjangoGetOrCreateModelMutation(DjangoCreateModelMutation):
             return cls.perform_mutate(form, info)
         else:
             errors = ErrorType.from_errors(form.errors)
-            return cls(errors=errors)
+            return cls(errors=errors, form_is_valid=False)
 
 
 class DjangoUpdateModelMutation(DjangoCreateModelMutation):
@@ -497,4 +500,4 @@ class DjangoDeleteModelMutation(BaseDjangoFormMutation):
         if not cls._meta.org_form_class:
             obj.delete()
 
-        return cls(errors=[], deleted_id=gid)
+        return cls(errors=[], form_is_valid=True, deleted_id=gid)

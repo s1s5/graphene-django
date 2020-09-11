@@ -166,6 +166,7 @@ class FormMutationTests(TestCase):
                         field
                         messages
                     }
+                    formIsValid
                     text
                 }
             }
@@ -173,6 +174,7 @@ class FormMutationTests(TestCase):
         )
 
         self.assertIs(result.errors, None)
+        self.assertFalse(result.data["myMutation"]["formIsValid"])
         self.assertEqual(
             result.data["myMutation"]["errors"],
             [{"field": "text", "messages": ["Invalid input"]}],
@@ -195,6 +197,7 @@ class FormMutationTests(TestCase):
                         field
                         messages
                     }
+                    formIsValid
                     text
                 }
             }
@@ -203,6 +206,7 @@ class FormMutationTests(TestCase):
 
         self.assertIs(result.errors, None)
         self.assertEqual(result.data["myMutation"]["errors"], [])
+        self.assertTrue(result.data["myMutation"]["formIsValid"])
         self.assertEqual(result.data["myMutation"]["text"], "VALID_INPUT")
 
 

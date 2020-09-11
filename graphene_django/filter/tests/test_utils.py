@@ -69,6 +69,25 @@ class TestMultipleOrderingFilter:
         assert not result.errors
         assert result.data == {'pets': {'edges': [{'node': {'name': 'name(5)', 'age': 5}}]}}
 
+        query = """
+        query($first: Int, $orderBy: [String]) {
+            pets(first: $first, orderBy: $orderBy) {
+                 edges {
+                     node {
+                         name
+                         age
+                     }
+                 }
+            }
+        }
+        """
+
+        result = schema.execute(query, variable_values={
+            "first": 1, "orderBy": ["pk"],
+        })
+        assert not result.errors
+        assert result.data == {'pets': {'edges': [{'node': {'name': 'name(1)', 'age': 1}}]}}
+
     def test_multiple(self):
         pets = []
         for i in range(1, 6):
