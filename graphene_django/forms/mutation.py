@@ -84,7 +84,7 @@ class BaseDjangoFormMutation(ClientIDMutation):
     class Meta:
         abstract = True
 
-    form_is_valid = graphene.Boolean()
+    form_is_valid = graphene.Boolean(required=True)
 
     @classmethod
     def __init_subclass_with_meta__(cls, *args, **kwargs):
