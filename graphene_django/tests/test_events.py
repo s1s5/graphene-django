@@ -1,5 +1,6 @@
 import json
 import pytest
+from unittest import mock
 from asgiref.sync import async_to_sync, sync_to_async
 
 from channels import DEFAULT_CHANNEL_LAYER
@@ -69,7 +70,8 @@ def test_post_save_created():
     channel = async_to_sync(channel_layer.new_channel)()
     async_to_sync(channel_layer.group_add)(group, channel)
 
-    models.Pet.objects.create(name="ichi", age=10)
+    with mock.patch('django.db.transaction.get_autocommit', return_value=True):
+        models.Pet.objects.create(name="ichi", age=10)
 
     message = async_to_sync(channel_layer.receive)(channel)
     assert isinstance(message, dict)
@@ -100,7 +102,8 @@ async def test_post_save_updated():
     await channel_layer.group_add(group, channel)
 
     pet.age = 11
-    await sync_to_async(pet.save)()
+    with mock.patch('django.db.transaction.get_autocommit', return_value=True):
+        await sync_to_async(pet.save)()
 
     message = await channel_layer.receive(channel)
     assert isinstance(message, dict)

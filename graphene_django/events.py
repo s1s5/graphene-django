@@ -1,6 +1,6 @@
 import importlib
 import asyncio
-from django.db import models
+from django.db import models, transaction
 from django.core.serializers import serialize, deserialize
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -80,7 +80,11 @@ def post_save_subscription(channel_group):
             event = ModelCreatedSubscriptionEvent('post_save', instance)
         else:
             event = ModelUpdatedSubscriptionEvent('post_save', instance)
-        event.send(channel_group)
+
+        if not transaction.get_autocommit():
+            transaction.on_commit(lambda: event.send(channel_group))
+        else:
+            event.send(channel_group)
 
     _mem.append(f)
     return f
