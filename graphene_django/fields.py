@@ -27,10 +27,11 @@ logger = logging.getLogger(__name__)
 
 
 class DefaultDjangoField(Field):
-    def __init__(self, _type, *args, **kwargs):
+    def __init__(self, _type, *args, _auto_resolve_id=False, **kwargs):
         self._model = _type._meta.model
         registry = get_global_registry()
         self._type = registry.get_type_for_model(self._model)
+        self._auto_resolve_id = _auto_resolve_id
         self.__get_from_parent = getattr(self._type, 'get_from_parent', self._get_from_parent)
         self.__resolve = getattr(self._type, 'resolve', lambda resolved, *args, **kwargs : resolved)
         super().__init__(_type, *args, resolver=self._resolve, **kwargs)
@@ -41,11 +42,11 @@ class DefaultDjangoField(Field):
     def _resolve(self, parent, info):
         return self.__resolve(self.__get_from_parent(parent, info), parent, info)
 
-    def resolve_id(self, parent_resolver, parent, info, id=None, *args, **kwargs):
-        if id is None:
+    def resolve_id(self, parent_resolver, parent, info, *args, **kwargs):
+        if not self._auto_resolve_id:
             resolved = parent_resolver(parent, info, *args, **kwargs)
         else:
-            resolved = Node.get_node_from_global_id(info, id)
+            resolved = Node.get_node_from_global_id(info, kwargs.get('id'))
         return self.__resolve(resolved, parent, info)
 
     def get_resolver(self, parent_resolver):

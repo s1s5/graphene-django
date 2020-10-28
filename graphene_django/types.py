@@ -393,7 +393,7 @@ class DjangoObjectType(ObjectType):
 
     @classmethod
     def Node(cls):
-        return cls._meta.field_class(cls, id=graphene.ID(required=True))
+        return cls._meta.field_class(cls, id=graphene.ID(required=True), _auto_resolve_id=True)
 
     @classmethod
     def Connection(cls, *args, **kwargs):
