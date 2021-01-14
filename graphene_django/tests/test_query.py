@@ -1161,7 +1161,7 @@ def test_should_preserve_prefetch_related(django_assert_num_queries):
         }
     """
     schema = graphene.Schema(query=Query)
-    with django_assert_num_queries(2) as captured:  # countを呼ばなくなったので3 -> 2に減らす
+    with django_assert_num_queries(3) as captured:  # countを呼ばなくなったので3 -> 2に減らす
         result = schema.execute(query)
     assert not result.errors
 
@@ -1373,7 +1373,7 @@ def test_queryset_optimize_foreign_key():
     result = schema.execute(query)
 
     assert not result.errors
-    assert len(connection.queries) == 1
+    assert len(connection.queries) == 2
 
     query = """
         query {
@@ -1405,7 +1405,7 @@ def test_queryset_optimize_foreign_key():
     # print(len(connection.queries))
 
     assert not result.errors
-    assert len(connection.queries) == 2
+    assert len(connection.queries) == 3
 
 
 def test_queryset_optimize_one_to_one():
@@ -1457,7 +1457,7 @@ def test_queryset_optimize_one_to_one():
     result = schema.execute(query)
 
     assert not result.errors
-    assert len(connection.queries) == 1
+    assert len(connection.queries) == 2
 
     query = """
         query {
@@ -1482,7 +1482,7 @@ def test_queryset_optimize_one_to_one():
     reset_queries()
     result = schema.execute(query)
     assert not result.errors
-    assert len(connection.queries) == 1
+    assert len(connection.queries) == 2
 
 
 def test_queryset_optimize_many_to_many():
@@ -1546,7 +1546,7 @@ def test_queryset_optimize_many_to_many():
     # print(result.data)
     # print(result.errors)
     assert not result.errors
-    assert len(connection.queries) == 2
+    assert len(connection.queries) == 3
 
     query = """
         query {
@@ -1578,7 +1578,7 @@ def test_queryset_optimize_many_to_many():
     # print(result.data)
     # print(result.errors)
     assert not result.errors
-    assert len(connection.queries) == 2
+    assert len(connection.queries) == 3
 
 
 def test_queryset_optimize_recursive():
@@ -1652,7 +1652,7 @@ def test_queryset_optimize_recursive():
     # print(result.data)
     # print(result.errors)
     assert not result.errors
-    assert len(connection.queries) == 2
+    assert len(connection.queries) == 3
 
     # reset_queries()
     # [x for x in Reporter.objects.all().prefetch_related('films').prefetch_related('films__details')]
@@ -1693,7 +1693,7 @@ def test_queryset_optimize_recursive():
     # print(result.data)
     # print(result.errors)
     assert not result.errors
-    assert len(connection.queries) == 3
+    assert len(connection.queries) == 4
 
 
 def test_queryset_connection_args():

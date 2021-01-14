@@ -384,7 +384,7 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
         kwargs = {
             cls._meta.return_field_name: obj,
             'edge': cls._meta.edge_type(
-                cursor=cls._meta.connection_field_class.instance_to_cursor(obj),
+                cursor=cls._meta.connection_field_class.instance_to_cursor(0, obj),
                 node=obj,
             )
         }

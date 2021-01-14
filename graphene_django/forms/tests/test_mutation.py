@@ -1057,8 +1057,8 @@ scalar Upload
 
         data = result.data['petMutation']
         self.assertEqual(data['errors'], [])
-        self.assertEqual(data['before'], {'cursor': '0x3', 'node': {'age': 11}})
-        self.assertEqual(data['after'], {'cursor': '0x3', 'node': {'age': 11}})
+        self.assertEqual(data['before'], {'cursor': '0x1,0x3', 'node': {'age': 11}})
+        self.assertEqual(data['after'], {'cursor': '0x3,0x3', 'node': {'age': 11}})
         self.assertEqual(data["pet"], {'name': 'Mia', 'age': 10})
 
 
