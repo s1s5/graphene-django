@@ -342,7 +342,7 @@ class DjangoConnectionField(ConnectionField):
         last = args.get('last')
         # print("before: ", before, ", after: ", after)
 
-        has_next_page, has_previous_page = False, False
+        # has_next_page, has_previous_page = False, False
         queryset_length = queryset.count()
         if before_index is not None and 0 <= before_index < queryset_length:
             if queryset[before_index].pk != before_pk:
@@ -421,13 +421,20 @@ class DjangoConnectionField(ConnectionField):
         first_edge_cursor = edges[0].cursor if edges else None
         last_edge_cursor = edges[-1].cursor if edges else None
 
+        lower_bound = 0   # after_offset + 1 if after else 0
+        upper_bound = queryset_length   # before_offset if before else list_length
+
         return connection_type(
             edges=edges,
             page_info=pageinfo_type(
                 start_cursor=first_edge_cursor,
                 end_cursor=last_edge_cursor,
-                has_previous_page=has_previous_page,
-                has_next_page=has_next_page,
+                has_previous_page=start_offset > lower_bound,
+                has_next_page=end_offset < upper_bound
+                # has_previous_page=isinstance(last, int) and start_offset > lower_bound,
+                # has_next_page=isinstance(first, int) and end_offset < upper_bound
+                # has_previous_page=has_previous_page,
+                # has_next_page=has_next_page,
             )
         )
 

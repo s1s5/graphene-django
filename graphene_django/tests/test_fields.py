@@ -599,14 +599,18 @@ class TestDjangoConnectionField:
                 model = ReporterModel
                 exclude = ()
 
+            @classmethod
+            def get_queryset(klass, queryset, info):
+                return queryset.order_by('pk')
+
         class Query(ObjectType):
             reporters = ReporterType.Connection()
 
         self.schema = Schema(query=Query)
         self.reporters = []
-        n = ['d', 'a', 'b', 'c', 'f', 'a', 'e', 'f', 'g', 'h']
+        # n = ['d', 'a', 'b', 'c', 'f', 'a', 'e', 'f', 'g', 'h']
         for i in range(10):
-            self.reporters.append(ReporterModel.objects.create(first_name=n[i]))
+            self.reporters.append(ReporterModel.objects.create(first_name=chr(ord('a') + i)))
 
     
     def teardown_method(self, method):
@@ -614,6 +618,49 @@ class TestDjangoConnectionField:
 
     def test_instance(self):
         assert isinstance(self.schema._query.reporters, DjangoConnectionField)
+
+    def test_resolve(self):
+        result = self.schema.execute('query { reporters(first: 1) { edges { node { firstName } } } }')
+        assert result.errors is None
+        assert result.data == {'reporters': {'edges': [{'node': {'firstName': 'a'}}]}}
+
+        result = self.schema.execute('query { reporters(last: 1) { edges { node { firstName } } } }')
+        assert result.errors is None
+        print(result.data)
+        assert result.data == {'reporters': {'edges': [{'node': {'firstName': 'j'}}]}}
+
+        cursor = '0x1,{}'.format(hex(self.reporters[1].pk))
+        result = self.schema.execute('query { reporters(first: 1, after: "%s") { edges { node { firstName } } } }' % cursor)
+        assert result.errors is None
+        assert result.data == {'reporters': {'edges': [{'node': {'firstName': 'c'}}]}}
+
+        cursor = '0x8,{}'.format(hex(self.reporters[8].pk))
+        result = self.schema.execute('query { reporters(last: 1, before: "%s") { edges { node { firstName } } } }' % cursor)
+        assert result.errors is None
+        assert result.data == {'reporters': {'edges': [{'node': {'firstName': 'h'}}]}}
+
+        result = self.schema.execute('query { reporters(first: 1) { pageInfo { hasNextPage hasPreviousPage } edges { node { firstName } } } }')
+        assert result.errors is None
+        assert result.data['reporters']['pageInfo']['hasNextPage'] is True
+        assert result.data['reporters']['pageInfo']['hasPreviousPage'] is False
+
+        result = self.schema.execute('query { reporters(last: 1) { pageInfo { hasNextPage hasPreviousPage } edges { node { firstName } } } }')
+        assert result.errors is None
+        assert result.data['reporters']['pageInfo']['hasNextPage'] is False
+        assert result.data['reporters']['pageInfo']['hasPreviousPage'] is True
+
+        cursor = '0x1,{}'.format(hex(self.reporters[1].pk))
+        result = self.schema.execute('query { reporters(first: 1, after: "%s") { pageInfo { hasNextPage hasPreviousPage } edges { node { firstName } } } }' % cursor)
+        assert result.errors is None
+        assert result.data['reporters']['pageInfo']['hasPreviousPage'] is True
+        assert result.data['reporters']['pageInfo']['hasNextPage'] is True
+
+        cursor = '0x8,{}'.format(hex(self.reporters[8].pk))
+        result = self.schema.execute('query { reporters(last: 1, before: "%s") { pageInfo { hasNextPage hasPreviousPage }edges { node { firstName } } } }' % cursor)
+        assert result.errors is None
+        assert result.data['reporters']['pageInfo']['hasPreviousPage'] is True
+        assert result.data['reporters']['pageInfo']['hasNextPage'] is True
+
 
     # def test_pk(self):
     #     before, after = DjangoConnectionField.get_before_and_after_cursor(['pk'], self.reporters[2])
