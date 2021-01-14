@@ -518,77 +518,77 @@ class TestDjangoListField:
             ]
         }
 
-    def test_split_query(self):
-        class PetNode(DjangoObjectType):
-            class Meta:
-                model = PetModel
-                exclude = ()
+    # def test_split_query(self):
+    #     class PetNode(DjangoObjectType):
+    #         class Meta:
+    #             model = PetModel
+    #             exclude = ()
 
-        class Query(ObjectType):
-            pets = DjangoConnectionField(PetNode)
+    #     class Query(ObjectType):
+    #         pets = DjangoConnectionField(PetNode)
 
-        pets = []
-        for i in range(1, 6):
-            pets.append(PetModel.objects.create(name='name({})'.format(i),
-                                                age=i))
+    #     pets = []
+    #     for i in range(1, 6):
+    #         pets.append(PetModel.objects.create(name='name({})'.format(i),
+    #                                             age=i))
 
-        schema = Schema(query=Query)
+    #     schema = Schema(query=Query)
 
-        query = """
-            query {
-                pets(first: 2) {
-                    edges {
-                        cursor
-                        node {
-                            name
-                            age
-                        }
-                    }
-                }
-            }
-        """
+    #     query = """
+    #         query {
+    #             pets(first: 2) {
+    #                 edges {
+    #                     cursor
+    #                     node {
+    #                         name
+    #                         age
+    #                     }
+    #                 }
+    #             }
+    #         }
+    #     """
 
-        result = schema.execute(query)
-        assert not result.errors
-        assert result.data == {'pets': {'edges': [{'cursor': hex(pets[0].pk), 'node': {'name': 'name(1)', 'age': 1}}, {'cursor': hex(pets[1].pk), 'node': {'name': 'name(2)', 'age': 2}}]}}
-
-
-        query = """
-            query {
-                pets(first: 2, after: "%s") {
-                    edges {
-                        cursor
-                        node {
-                            name
-                            age
-                        }
-                    }
-                }
-            }
-        """ % hex(pets[1].pk)
-
-        result = schema.execute(query)
-        assert not result.errors
-        assert result.data == {'pets': {'edges': [{'cursor': hex(pets[2].pk), 'node': {'name': 'name(3)', 'age': 3}}, {'cursor': hex(pets[3].pk), 'node': {'name': 'name(4)', 'age': 4}}]}}
+    #     result = schema.execute(query)
+    #     assert not result.errors
+    #     assert result.data == {'pets': {'edges': [{'cursor': hex(pets[0].pk), 'node': {'name': 'name(1)', 'age': 1}}, {'cursor': hex(pets[1].pk), 'node': {'name': 'name(2)', 'age': 2}}]}}
 
 
-        query = """
-            query {
-                pets(last: 2, before: "%s") {
-                    edges {
-                        cursor
-                        node {
-                            name
-                            age
-                        }
-                    }
-                }
-            }
-        """ % hex(pets[4].pk)
+    #     query = """
+    #         query {
+    #             pets(first: 2, after: "%s") {
+    #                 edges {
+    #                     cursor
+    #                     node {
+    #                         name
+    #                         age
+    #                     }
+    #                 }
+    #             }
+    #         }
+    #     """ % hex(pets[1].pk)
 
-        result = schema.execute(query)
-        assert not result.errors
-        assert result.data == {'pets': {'edges': [{'cursor': hex(pets[2].pk), 'node': {'name': 'name(3)', 'age': 3}}, {'cursor': hex(pets[3].pk), 'node': {'name': 'name(4)', 'age': 4}}]}}
+    #     result = schema.execute(query)
+    #     assert not result.errors
+    #     assert result.data == {'pets': {'edges': [{'cursor': hex(pets[2].pk), 'node': {'name': 'name(3)', 'age': 3}}, {'cursor': hex(pets[3].pk), 'node': {'name': 'name(4)', 'age': 4}}]}}
+
+
+    #     query = """
+    #         query {
+    #             pets(last: 2, before: "%s") {
+    #                 edges {
+    #                     cursor
+    #                     node {
+    #                         name
+    #                         age
+    #                     }
+    #                 }
+    #             }
+    #         }
+    #     """ % hex(pets[4].pk)
+
+    #     result = schema.execute(query)
+    #     assert not result.errors
+    #     assert result.data == {'pets': {'edges': [{'cursor': hex(pets[2].pk), 'node': {'name': 'name(3)', 'age': 3}}, {'cursor': hex(pets[3].pk), 'node': {'name': 'name(4)', 'age': 4}}]}}
 
 
 @pytest.mark.django_db
@@ -615,54 +615,54 @@ class TestDjangoConnectionField:
     def test_instance(self):
         assert isinstance(self.schema._query.reporters, DjangoConnectionField)
 
-    def test_pk(self):
-        before, after = DjangoConnectionField.get_before_and_after_cursor(['pk'], self.reporters[2])
-        assert before == DjangoConnectionField.instance_to_cursor(self.reporters[1])
-        assert after == DjangoConnectionField.instance_to_cursor(self.reporters[3])
+    # def test_pk(self):
+    #     before, after = DjangoConnectionField.get_before_and_after_cursor(['pk'], self.reporters[2])
+    #     assert before == DjangoConnectionField.instance_to_cursor(self.reporters[1])
+    #     assert after == DjangoConnectionField.instance_to_cursor(self.reporters[3])
         
-    def test_pk_reverse(self):
-        before, after = DjangoConnectionField.get_before_and_after_cursor(['-pk'], self.reporters[2])
-        assert before == DjangoConnectionField.instance_to_cursor(self.reporters[3])
-        assert after == DjangoConnectionField.instance_to_cursor(self.reporters[1])
+    # def test_pk_reverse(self):
+    #     before, after = DjangoConnectionField.get_before_and_after_cursor(['-pk'], self.reporters[2])
+    #     assert before == DjangoConnectionField.instance_to_cursor(self.reporters[3])
+    #     assert after == DjangoConnectionField.instance_to_cursor(self.reporters[1])
         
-    def test_multiple_0(self):
-        ll = list(sorted(self.reporters, key=lambda x: (x.first_name, x.pk)))
-        for i in range(len(self.reporters)):
-            before, after = DjangoConnectionField.get_before_and_after_cursor(['first_name', 'pk'], self.reporters[i])
-            index = [x.pk for x in ll].index(self.reporters[i].pk)
-            if index == 0:
-                assert before is None
-            else:
-                assert before == DjangoConnectionField.instance_to_cursor(ll[index - 1])
-            if index == len(self.reporters) - 1:
-                assert after is None
-            else:
-                assert after == DjangoConnectionField.instance_to_cursor(ll[index + 1])
+    # def test_multiple_0(self):
+    #     ll = list(sorted(self.reporters, key=lambda x: (x.first_name, x.pk)))
+    #     for i in range(len(self.reporters)):
+    #         before, after = DjangoConnectionField.get_before_and_after_cursor(['first_name', 'pk'], self.reporters[i])
+    #         index = [x.pk for x in ll].index(self.reporters[i].pk)
+    #         if index == 0:
+    #             assert before is None
+    #         else:
+    #             assert before == DjangoConnectionField.instance_to_cursor(ll[index - 1])
+    #         if index == len(self.reporters) - 1:
+    #             assert after is None
+    #         else:
+    #             assert after == DjangoConnectionField.instance_to_cursor(ll[index + 1])
 
-    def test_multiple_1(self):
-        ll = list(sorted(self.reporters, key=lambda x: (x.first_name, - x.pk)))
-        for i in range(len(self.reporters)):
-            before, after = DjangoConnectionField.get_before_and_after_cursor(['first_name', '-pk'], self.reporters[i])
-            index = [x.pk for x in ll].index(self.reporters[i].pk)
-            if index == 0:
-                assert before is None
-            else:
-                assert before == DjangoConnectionField.instance_to_cursor(ll[index - 1])
-            if index == len(self.reporters) - 1:
-                assert after is None
-            else:
-                assert after == DjangoConnectionField.instance_to_cursor(ll[index + 1])
+    # def test_multiple_1(self):
+    #     ll = list(sorted(self.reporters, key=lambda x: (x.first_name, - x.pk)))
+    #     for i in range(len(self.reporters)):
+    #         before, after = DjangoConnectionField.get_before_and_after_cursor(['first_name', '-pk'], self.reporters[i])
+    #         index = [x.pk for x in ll].index(self.reporters[i].pk)
+    #         if index == 0:
+    #             assert before is None
+    #         else:
+    #             assert before == DjangoConnectionField.instance_to_cursor(ll[index - 1])
+    #         if index == len(self.reporters) - 1:
+    #             assert after is None
+    #         else:
+    #             assert after == DjangoConnectionField.instance_to_cursor(ll[index + 1])
 
-    def test_multiple_2(self):
-        ll = list(reversed(sorted(self.reporters, key=lambda x: (x.first_name, x.pk))))
-        for i in range(len(self.reporters)):
-            before, after = DjangoConnectionField.get_before_and_after_cursor(['-first_name', '-pk'], self.reporters[i])
-            index = [x.pk for x in ll].index(self.reporters[i].pk)
-            if index == 0:
-                assert before is None
-            else:
-                assert before == DjangoConnectionField.instance_to_cursor(ll[index - 1])
-            if index == len(self.reporters) - 1:
-                assert after is None
-            else:
-                assert after == DjangoConnectionField.instance_to_cursor(ll[index + 1])
+    # def test_multiple_2(self):
+    #     ll = list(reversed(sorted(self.reporters, key=lambda x: (x.first_name, x.pk))))
+    #     for i in range(len(self.reporters)):
+    #         before, after = DjangoConnectionField.get_before_and_after_cursor(['-first_name', '-pk'], self.reporters[i])
+    #         index = [x.pk for x in ll].index(self.reporters[i].pk)
+    #         if index == 0:
+    #             assert before is None
+    #         else:
+    #             assert before == DjangoConnectionField.instance_to_cursor(ll[index - 1])
+    #         if index == len(self.reporters) - 1:
+    #             assert after is None
+    #         else:
+    #             assert after == DjangoConnectionField.instance_to_cursor(ll[index + 1])
