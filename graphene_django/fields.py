@@ -273,17 +273,19 @@ class DjangoConnectionField(ConnectionField):
         return before, after
 
     @classmethod
-    def instance_to_cursor(cls, instance):
+    def instance_to_cursor(cls, index, instance):
         if instance:
             try:
-                return hex(instance.pk)
+                return hex(index) + ',' + hex(instance.pk)
             except:
                 pass
 
     @classmethod
     def cursor_to_instance(cls, cursor, model_type):
         if cursor:
-            return model_type._default_manager.get(pk=int(cursor, 16))
+            return [int(x, 16) for x in cursor.split(',')]
+            # return model_type._default_manager.get(pk=int(cursor, 16))
+        return None, None
 
     @classmethod
     def split_query(cls, queryset, order_by, instance):
@@ -318,50 +320,102 @@ class DjangoConnectionField(ConnectionField):
     @classmethod
     def connection_from_queryset(cls, queryset, args, connection_type,
                                  edge_type, pageinfo_type):
-        if 'order_by' in args and args['order_by']:  # TODO: order_byは固定・・・
-            if isinstance(args['order_by'], str):
-                order_by = args['order_by'].split(',')
-            else:
-                order_by = args['order_by']
-        elif getattr(queryset.model._meta, 'ordering', None):
-            order_by = queryset.model._meta.ordering
-        else:
-            order_by = ['pk']
+        # print('-' * 30, 'connection_from_queryset', '-' * 30)
+        # print(queryset, args)
+        # if 'order_by' in args and args['order_by']:  # TODO: order_byは固定・・・
+        #     if isinstance(args['order_by'], str):
+        #         order_by = args['order_by'].split(',')
+        #     else:
+        #         order_by = args['order_by']
+        # elif getattr(queryset.model._meta, 'ordering', None):
+        #     order_by = queryset.model._meta.ordering
+        # else:
+        #     order_by = ['pk']
 
         model_type = connection_type._meta.node._meta.model
 
         args = args or {}
 
-        before = cls.cursor_to_instance(args.get('before'), model_type)
-        after = cls.cursor_to_instance(args.get('after'), model_type)
+        before_index, before_pk = cls.cursor_to_instance(args.get('before'), model_type)
+        after_index, after_pk = cls.cursor_to_instance(args.get('after'), model_type)
         first = args.get('first')
         last = args.get('last')
+        # print("before: ", before, ", after: ", after)
 
         has_next_page, has_previous_page = False, False
-        if before:
-            queryset, qs_ex = cls.split_query(queryset, order_by, before)
-            has_next_page = True
+        queryset_length = queryset.count()
+        if before_index is not None and 0 <= before_index < queryset_length:
+            if queryset[before_index].pk != before_pk:
+                for i in range(10):
+                    if (before_index + i < queryset_length) and (
+                            queryset[before_index + i].pk == before_pk):
+                        before_index = before_index + i
+                        break
+                    elif (before_index - i >= 0) and (
+                            queryset[before_index - i].pk == before_pk):
+                        before_index = before_index + i
+                        break
+            # queryset = queryset[:before_index]
+            # # queryset, qs_ex = cls.split_query(queryset, order_by, before)
+            # has_next_page = True
 
-        if after:
-            qs_ex, queryset = cls.split_query(queryset, order_by, after)
-            has_previous_page = True
+        if after_index is not None and 0 <= after_index < queryset_length:
+            if queryset[after_index].pk != after_pk:
+                for i in range(10):
+                    if (after_index + i < queryset_length) and (
+                            queryset[after_index + i].pk == after_pk):
+                        after_index = after_index + i
+                        break
+                    elif (after_index - i >= 0) and (
+                            queryset[after_index - i].pk == after_pk):
+                        after_index = after_index + i
+                        break
+            # queryset = queryset[after_index:]
+            # # qs_ex, queryset = cls.split_query(queryset, order_by, after)
+            # has_previous_page = True
 
+        # if isinstance(first, int):
+        #     has_next_page = queryset[first:].exists()
+        #     queryset = queryset[:first]
+
+        # if isinstance(last, int):
+        #     logger.warning('performance warning queryset.count called')
+        #     index = max(0, queryset.count() - last)
+        #     has_previous_page = queryset[:index].exists()
+        #     queryset = queryset[index:]
+        before_offset = before_index if before_index else queryset_length
+        after_offset = after_index if after_index else -1
+
+        start_offset = max(
+            after_offset,
+            -1
+        ) + 1
+        end_offset = min(
+            before_offset,
+            queryset_length
+        )
         if isinstance(first, int):
-            has_next_page = queryset[first:].exists()
-            queryset = queryset[:first]
-
+            end_offset = min(
+                end_offset,
+                start_offset + first
+            )
         if isinstance(last, int):
-            logger.warning('performance warning queryset.count called')
-            index = max(0, queryset.count() - last)
-            has_previous_page = queryset[:index].exists()
-            queryset = queryset[index:]
+            start_offset = max(
+                start_offset,
+                end_offset - last
+            )
+
+        slice_start, slice_end = 0, queryset_length
+        start_offset = max(start_offset - slice_start, 0)
+        end_offset = queryset_length - (slice_end - end_offset)
+        _slice = queryset[start_offset:end_offset]
 
         edges = [
             edge_type(
                 node=node,
-                cursor=cls.instance_to_cursor(node)
+                cursor=cls.instance_to_cursor(index, node)
             )
-            for node in queryset
+            for index, node in enumerate(_slice, start_offset)
         ]
 
         first_edge_cursor = edges[0].cursor if edges else None
