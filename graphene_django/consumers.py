@@ -1,6 +1,7 @@
 import functools
 import logging
 import json
+from concurrent import futures as concurrent_futures
 
 import six
 
@@ -257,6 +258,8 @@ class ChannelGroupObservable(ObservableBase):
         try:
             while True:
                 observer.on_next(await channel_receive())
+        except (StopConsumer, concurrent_futures.CancelledError):
+            pass
         except Exception as e:
             observer.on_error(e)
         finally:
