@@ -1893,6 +1893,39 @@ scalar Upload
                              {'errors': [], 'film': {
                                  'jacketImage': {'name': 'tmp/film/jacket/{}'.format(png_filename)},
                                  'data': {'name': 'tmp/film/data/{}'.format(txt_filename)}}})
+
+            result = self.schema.execute(
+                """ mutation($input: FilmMutationInput!) {
+                    filmMutation(input: $input) {
+                        errors {
+                            field
+                            messages
+                        }
+                        film {
+                            jacketImage {
+                                name
+                            }
+                            data {
+                                name
+                            }
+                        }
+                    }
+                }
+                """,
+                variable_values={"input": {
+                    "id": to_global_id('FilmType', f.pk),
+                    "jacketImage": False,
+                }},
+            )
+            # print(result.errors)
+            # print(result.data)
+            self.assertIs(result.errors, None)
+            self.assertEqual(result.data['filmMutation'],
+                             {'errors': [], 'film': {
+                                 'jacketImage': {'name': None},
+                                 'data': {'name': 'tmp/film/data/{}'.format(txt_filename)}}})
+
+
             f.data.delete()
             f.jacket_image.delete()
         finally:

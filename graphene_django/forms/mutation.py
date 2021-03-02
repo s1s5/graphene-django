@@ -143,6 +143,9 @@ class BaseDjangoFormMutation(ClientIDMutation):
                     type_name, pk = from_global_id(form_kwargs['data'][name])
                     if type_name == model_type._meta.name:
                         form_kwargs['data'][name] = pk
+                elif isinstance(field, forms.FileField):
+                    if form_kwargs['data'][name] is False:
+                        form_kwargs['data']['{}-clear'.format(name)] = True
             except Exception:
                 continue
 
