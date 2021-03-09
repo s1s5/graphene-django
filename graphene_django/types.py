@@ -36,7 +36,7 @@ def construct_fields(
 
     fields = OrderedDict()
     for name, field in _model_fields:
-        is_not_in_only = only_fields and name not in only_fields
+        is_not_in_only = (only_fields is not None) and name not in only_fields
         # is_already_created = name in options.fields
         is_excluded = name in exclude_fields  # or is_already_created
         # https://docs.djangoproject.com/en/1.10/ref/models/fields/#django.db.models.ForeignKey.related_query_name
