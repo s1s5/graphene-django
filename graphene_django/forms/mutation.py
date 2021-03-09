@@ -198,6 +198,10 @@ class BaseDjangoFormMutation(ClientIDMutation):
 
         return kwargs
 
+    @classmethod
+    def form_save(cls, form, info):
+        return form.save()
+
 
 class DjangoFormMutationOptions(MutationOptions):
     form_class = None
@@ -234,7 +238,8 @@ class DjangoFormMutation(BaseDjangoFormMutation):
 
     @classmethod
     def perform_mutate(cls, form, info):
-        form.save()
+        cls.form_save(form, info)
+
         return cls(errors=[], form_is_valid=True, **{
             key: value
             for key, value in form.cleaned_data.items()
@@ -392,7 +397,7 @@ class DjangoCreateModelMutation(BaseDjangoFormMutation):
 
     @classmethod
     def perform_mutate(cls, form, info):
-        obj = form.save()
+        obj = cls.form_save(form, info)
         return cls.create_result(form, info, obj)
 
 
@@ -495,7 +500,7 @@ class DjangoDeleteModelMutation(BaseDjangoFormMutation):
         model_type = registry.get_type_for_model(cls._meta.model)
 
         gid = to_global_id(model_type.__name__, form.instance.pk)
-        obj = form.save()
+        obj = cls.form_save(form, info)
 
         if not cls._meta.org_form_class:
             obj.delete()
