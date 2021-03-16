@@ -164,95 +164,7 @@ class DjangoConnectionField(ConnectionField):
         return None, None
 
     @classmethod
-    def _search_related(cls, field_ast, model, prefix=None, prefix_bool=True):
-        # print(field_ast, model)
-        def find_edges(field):
-            if not field:
-                return
-            for j in field.selection_set.selections:
-                # print(dir(j.name), type(j.name))
-                if j.name.value == 'edges':
-                    return j
-
-        def find_node(field):
-            if not field:
-                return
-            for j in field.selection_set.selections:
-                if j.name.value == 'node':
-                    return j
-
-        def find_field(field):
-            ll = []
-            if not field:
-                return []
-            for name, cur_ast in [(j.name.value, j) for j in field.selection_set.selections]:
-                if name == 'edges':
-                    continue
-                attr = getattr(model, name, None)
-                # print("=" * 30, prefix, name, "=" * 30, )
-                # print(name, attr, dir(attr), type(attr.field), getattr(attr.field, 'rel_class', None), getattr(attr, 'get_queryset', None))
-                # print(isinstance(attr, ForeignKeyDeferredAttribute))
-                # print(isinstance(attr, ForwardManyToOneDescriptor))
-                # print(isinstance(attr, ForwardOneToOneDescriptor))
-                # print(isinstance(attr, ManyToManyDescriptor))
-                # print(isinstance(attr, ReverseManyToOneDescriptor))
-                # print(isinstance(attr, ReverseOneToOneDescriptor))
-                # print(name, attr, dir(attr), dir(getattr(attr, 'rel', None)))
-                f, m = cls._get_related_model(attr)
-                if m:
-                    ll.append((f, name))
-                    ll += cls._search_related(cur_ast, m, name, prefix_bool and f)
-                # if isinstance(attr, (ForwardManyToOneDescriptor, ReverseOneToOneDescriptor)):
-                #     ll.append((True, name))
-                #     # print("recursive search : ", name)
-                #     # print(cur_ast)
-                #     # print(cls._get_related_model(attr))
-                #     ll += cls._search_related(cur_ast, cls._get_related_model(attr), name, prefix_bool)
-                # elif isinstance(attr, (ReverseManyToOneDescriptor, )):
-                #     ll.append((False, name))
-                #     # print("recursive search : ", name)
-                #     # print(cur_ast)
-                #     # print(cls._get_related_model(attr))
-                #     ll += cls._search_related(cur_ast, cls._get_related_model(attr), name, False)
-            return ll
-
-        related = []
-        related += find_field(field_ast)
-        related += find_field(find_node(find_edges(field_ast)))
-        if prefix:
-            related = [(x[0] and prefix_bool, '{}__{}'.format(prefix, x[1])) for x in related]
-        # print("related => ", related)
-        return related
-
-
-    @classmethod
-    def optimize_queryset(cls, connection, queryset, info, args):
-        if not isinstance(queryset, Manager):
-            return queryset
-
-        related = []
-        for ast in info.field_asts:
-            related += cls._search_related(ast, queryset.model)
-
-        attached = set()
-        
-        for b, name in related:
-            if name in attached:
-                continue
-            # print(name, related, issubclass(related, (ManyToOneRel, )), issubclass(related, (ManyToManyRel, )))
-            attached.add(name)
-            # print(name, '=>', b)
-            if b:
-                queryset = queryset.select_related(name)
-            else:
-                queryset = queryset.prefetch_related(name)
-        return queryset
-
-    @classmethod
     def resolve_queryset(cls, connection, queryset, info, args):
-        # print("resolve queryset : ", cls, queryset)
-        # queryset is the resolved iterable from ObjectType
-        # queryset = cls.optimize_queryset(connection, queryset, info, args)
         return connection._meta.node.get_queryset(queryset, info)
 
     @classmethod
@@ -284,54 +196,11 @@ class DjangoConnectionField(ConnectionField):
     def cursor_to_instance(cls, cursor, model_type):
         if cursor:
             return [int(x, 16) for x in cursor.split(',')]
-            # return model_type._default_manager.get(pk=int(cursor, 16))
         return None, None
-
-    @classmethod
-    def split_query(cls, queryset, order_by, instance):
-        sumq, q = None, None
-        for order in order_by:
-            if order.startswith('-'):
-                field = order[1:]
-                expr = '{}__gt'.format(field)
-            else:
-                field = order
-                expr = '{}__lt'.format(field)
-
-            try:
-                o = instance
-                for f in field.split('__'):
-                    o = getattr(o, f)
-            except Exception:
-                o = None
-
-            if o is None:
-                continue  # TODO: これでいいのか・・・？
-            if q is None:
-                cq = Q(**{expr: o})
-                q = Q(**{field: o})
-                sumq = cq
-            else:
-                cq = q & Q(**{expr: o})
-                q = q & Q(**{field: o})
-                sumq = sumq | cq
-        return queryset.filter(sumq), queryset.exclude(sumq).exclude(pk=instance.pk)
 
     @classmethod
     def connection_from_queryset(cls, queryset, args, connection_type,
                                  edge_type, pageinfo_type):
-        # print('-' * 30, 'connection_from_queryset', '-' * 30)
-        # print(queryset, args)
-        # if 'order_by' in args and args['order_by']:  # TODO: order_byは固定・・・
-        #     if isinstance(args['order_by'], str):
-        #         order_by = args['order_by'].split(',')
-        #     else:
-        #         order_by = args['order_by']
-        # elif getattr(queryset.model._meta, 'ordering', None):
-        #     order_by = queryset.model._meta.ordering
-        # else:
-        #     order_by = ['pk']
-
         model_type = connection_type._meta.node._meta.model
 
         args = args or {}
@@ -340,9 +209,7 @@ class DjangoConnectionField(ConnectionField):
         after_index, after_pk = cls.cursor_to_instance(args.get('after'), model_type)
         first = args.get('first')
         last = args.get('last')
-        # print("before: ", before, ", after: ", after)
 
-        # has_next_page, has_previous_page = False, False
         queryset_length = queryset.count()
         if before_index is not None and 0 <= before_index < queryset_length:
             if queryset[before_index].pk != before_pk:
@@ -355,9 +222,6 @@ class DjangoConnectionField(ConnectionField):
                             queryset[before_index - i].pk == before_pk):
                         before_index = before_index + i
                         break
-            # queryset = queryset[:before_index]
-            # # queryset, qs_ex = cls.split_query(queryset, order_by, before)
-            # has_next_page = True
 
         if after_index is not None and 0 <= after_index < queryset_length:
             if queryset[after_index].pk != after_pk:
@@ -370,19 +234,7 @@ class DjangoConnectionField(ConnectionField):
                             queryset[after_index - i].pk == after_pk):
                         after_index = after_index + i
                         break
-            # queryset = queryset[after_index:]
-            # # qs_ex, queryset = cls.split_query(queryset, order_by, after)
-            # has_previous_page = True
 
-        # if isinstance(first, int):
-        #     has_next_page = queryset[first:].exists()
-        #     queryset = queryset[:first]
-
-        # if isinstance(last, int):
-        #     logger.warning('performance warning queryset.count called')
-        #     index = max(0, queryset.count() - last)
-        #     has_previous_page = queryset[:index].exists()
-        #     queryset = queryset[index:]
         before_offset = before_index if before_index else queryset_length
         after_offset = after_index if after_index else -1
 
@@ -509,7 +361,6 @@ class DjangoConnectionField(ConnectionField):
 
         if iterable is None:
             iterable = default_manager
-            iterable = cls.optimize_queryset(connection, iterable, info, args)
 
         # thus the iterable gets refiltered by resolve_queryset
         # but iterable might be promise
