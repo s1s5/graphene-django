@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import logging
 import json
@@ -8,6 +9,7 @@ import six
 from asgiref.sync import async_to_sync
 from asyncio import ensure_future
 from channels import DEFAULT_CHANNEL_LAYER
+from channels.db import database_sync_to_async
 from channels.consumer import await_many_dispatch, get_handler_name, SyncConsumer, StopConsumer
 from channels.layers import get_channel_layer
 from rx.core import ObserverBase, ObservableBase
@@ -212,7 +214,7 @@ class AsyncWebsocketConsumer(AsyncConsumer):
     def _send(self, _id, type, payload):
         logger.debug('sending %s, %s', type, payload)
         try:
-            ensure_future(super().send({
+            data = {
                 "type": "websocket.send",
                 "text": json.dumps(
                     {
@@ -221,7 +223,13 @@ class AsyncWebsocketConsumer(AsyncConsumer):
                         "payload": payload,
                     }
                 ),
-            }))
+            }
+
+            if asyncio._get_running_loop():
+                ensure_future(super().send(data))
+            else:
+                async_to_sync(super().send)(data)
+
         except Exception as e:
             logger.exception(e)
 
@@ -242,11 +250,12 @@ class AsyncWebsocketConsumer(AsyncConsumer):
 
 
 class ChannelGroupObservable(ObservableBase):
-    def __init__(self, channel_group, channel_layer_alias=DEFAULT_CHANNEL_LAYER, loop=None, *args, **kwargs):
+    def __init__(self, channel_group, channel_layer_alias=DEFAULT_CHANNEL_LAYER, loop=None, sync_mode=True, *args, **kwargs):
         self.channel_group = channel_group
         self.channel_layer_alias = channel_layer_alias
         self.loop = loop
         super().__init__(*args, **kwargs)
+        self.sync_mode = sync_mode
 
     async def dispatch(self, observer):
         channel_layer = get_channel_layer(self.channel_layer_alias)
@@ -255,9 +264,16 @@ class ChannelGroupObservable(ObservableBase):
 
         logger.debug('channel_layer.group_add(%s, %s)', self.channel_group, channel_name)
         await channel_layer.group_add(self.channel_group, channel_name)
+
+        if self.sync_mode:
+            dispatch = self._event_dispatch_sync
+        else:
+            dispatch = self._event_dispatch_async
+
         try:
             while True:
-                observer.on_next(await channel_receive())
+                await dispatch(observer, await channel_receive())
+
         except (StopConsumer, concurrent_futures.CancelledError):
             pass
         except Exception as e:
@@ -266,6 +282,12 @@ class ChannelGroupObservable(ObservableBase):
             await channel_layer.group_discard(self.channel_group, channel_name)
             logger.debug('channel_layer.group_discard(%s, %s)', self.channel_group, channel_name)
 
+    @database_sync_to_async
+    def _event_dispatch_sync(self, observer, event):
+        observer.on_next(event)
+
+    async def _event_dispatch_async(self, observer, event):
+        observer.on_next(event)
 
     def _subscribe_core(self, observer):
         task = ensure_future(self.dispatch(observer))
