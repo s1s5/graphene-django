@@ -8,12 +8,14 @@ import six
 
 from asgiref.sync import async_to_sync
 from asyncio import ensure_future
+from asyncio import get_event_loop
 from channels import DEFAULT_CHANNEL_LAYER
 from channels.db import database_sync_to_async
 from channels.consumer import await_many_dispatch, get_handler_name, SyncConsumer, StopConsumer
 from channels.layers import get_channel_layer
 from rx.core import ObserverBase, ObservableBase
 from rx.subjects import Subject
+from graphql.execution.executors.sync import SyncExecutor
 from graphql.execution.executors.asyncio import AsyncioExecutor
 from graphql.execution.executors.asyncio_utils import asyncgen_to_observable
 from graphene_django.settings import graphene_settings
@@ -26,13 +28,6 @@ logger = logging.getLogger(__name__)
 class AttrDict:
     def __init__(self, data):
         self.__dict__ = data
-    #     self.data = data or {}
-
-    # def __getattr__(self, item):
-    #     return self.get(item)
-
-    # def get(self, item):
-    #     return self.data.get(item)
 
 
 class AsyncConsumer:
@@ -57,74 +52,21 @@ class AsyncConsumer:
         await self.base_send(message)
 
 
-stream = Subject()
-
-
-class SyncWebsocketConsumer(SyncConsumer):
-    def websocket_connect(self, message):
-        async_to_sync(self.channel_layer.group_add)("subscriptions", self.channel_name)
-
-        self.send({"type": "websocket.accept", "subprotocol": "graphql-ws"})
-
-    def websocket_disconnect(self, message):
-        self.send({"type": "websocket.close", "code": 1000})
-        raise StopConsumer()
-
-    def websocket_receive(self, message):
-        request = json.loads(message["text"])
-        id = request.get("id")
-
-        if request["type"] == "connection_init":
-            return
-
-        elif request["type"] == "start":
-            payload = request["payload"]
-            context = AttrDict(self.scope)
-
-            schema = graphene_settings.SCHEMA
-
-            result = schema.execute(
-                payload["query"],
-                operation_name=payload.get("operationName"),
-                variables=payload.get("variables"),
-                context=context,
-                root=stream,
-                allow_subscriptions=True,
-            )
-
-            if hasattr(result, "subscribe"):
-                result.subscribe(functools.partial(self._send_result, id))
-            else:
-                self._send_result(id, result)
-
-        elif request["type"] == "stop":
-            pass
-
-    def signal_fired(self, message):
-        stream.on_next(SubscriptionEvent.from_dict(message["event"]))
-
-    def _send_result(self, id, result):
-        errors = result.errors
-
-        self.send(
-            {
-                "type": "websocket.send",
-                "text": json.dumps(
-                    {
-                        "id": id,
-                        "type": "data",
-                        "payload": {
-                            "data": result.data,
-                            "errors": list(map(str, errors)) if errors else None,
-                        },
-                    }
-                ),
-            }
-        )
-
 
 class AsyncWebsocketConsumer(AsyncConsumer):
-    class Executor(AsyncioExecutor):
+    _sync = False
+
+    class CustomSyncExecutor(SyncExecutor):
+        def __init__(self, loop):
+            self.loop = loop
+
+        def execute(self, fn, *args, **kwargs):
+            result = super().execute(fn, *args, **kwargs)
+            if hasattr(result, "__aiter__"):
+                return asyncgen_to_observable(result, loop=self.loop)
+            return result
+
+    class CustomAsyncioExecutor(AsyncioExecutor):
         def execute(self, fn, *args, **kwargs):
             result = super().execute(fn, *args, **kwargs)
             if hasattr(result, "__aiter__"):
@@ -172,6 +114,37 @@ class AsyncWebsocketConsumer(AsyncConsumer):
         logger.debug('websocket_connect')
         await super().send({"type": "websocket.accept", "subprotocol": 'graphql-ws'})
 
+    @database_sync_to_async
+    def execute_schema_sync(self, request, loop):
+        payload = request["payload"]
+        context = AttrDict(self.scope)
+
+        return self.schema.execute(
+            payload["query"],
+            operation_name=payload.get("operationName"),
+            variable_values=payload.get("variables"),
+            context_value=context,
+            root_value=None,
+            allow_subscriptions=True,
+
+            executor=AsyncWebsocketConsumer.CustomSyncExecutor(loop=loop),
+        )
+
+    def execute_schema_async(self, request):
+        payload = request["payload"]
+        context = AttrDict(self.scope)
+
+        return self.schema.execute(
+            payload["query"],
+            operation_name=payload.get("operationName"),
+            variable_values=payload.get("variables"),
+            context_value=context,
+            root_value=None,
+            allow_subscriptions=True,
+
+            executor=AsyncWebsocketConsumer.CustomAsyncioExecutor(),
+        )
+
     async def websocket_receive(self, message):
         logger.debug('websocket_receive %s', message)
         request = json.loads(message["text"])
@@ -181,19 +154,10 @@ class AsyncWebsocketConsumer(AsyncConsumer):
             return
 
         elif request["type"] == "start":
-            payload = request["payload"]
-            context = AttrDict(self.scope)
-
-            result = self.schema.execute(
-                payload["query"],
-                operation_name=payload.get("operationName"),
-                variable_values=payload.get("variables"),
-                context_value=context,
-                root_value=None,
-                allow_subscriptions=True,
-
-                executor=AsyncWebsocketConsumer.Executor(),
-            )
+            if self._sync:
+                result = await self.execute_schema_sync(request, get_event_loop())
+            else:
+                result = self.execute_schema_async(request)
 
             logger.debug('result %s, %s', result, hasattr(result, "subscribe"))
             if hasattr(result, "subscribe"):
@@ -247,6 +211,10 @@ class AsyncWebsocketConsumer(AsyncConsumer):
             logger.exception(e)
         finally:
             raise StopConsumer()
+
+
+class SyncWebsocketConsumer(AsyncWebsocketConsumer):
+    _sync = True
 
 
 class ChannelGroupObservable(ObservableBase):
