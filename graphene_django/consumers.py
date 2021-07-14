@@ -2,6 +2,7 @@ import asyncio
 import functools
 import logging
 import json
+import uuid
 from concurrent import futures as concurrent_futures
 
 import six
@@ -113,6 +114,13 @@ class AsyncWebsocketConsumer(AsyncConsumer):
     async def websocket_connect(self, message):
         logger.debug('websocket_connect')
         await super().send({"type": "websocket.accept", "subprotocol": 'graphql-ws'})
+        await super().send({
+            'type': 'websocket.send',
+            'text': json.dumps({
+                "type": "connection_ack",
+                "payload": uuid.uuid4().hex,
+            }),
+        })
 
     @database_sync_to_async
     def execute_schema_sync(self, request, loop):
