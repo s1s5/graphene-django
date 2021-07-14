@@ -2,6 +2,7 @@ import asyncio
 import functools
 import logging
 import json
+import promise
 import uuid
 from concurrent import futures as concurrent_futures
 
@@ -84,6 +85,13 @@ class AsyncWebsocketConsumer(AsyncConsumer):
         def _on_next_core(self, value):
             try:
                 logger.debug("_on_next_core %s", value)
+                # TODO: graphql.execution.executor.subcribe_fieldsあたりのバグ、なんでかpromiseのまま
+                # どうしていいかわからないので一旦これで
+                for key, v in value.data.items():
+                    if isinstance(v, promise.Promise):
+                        v = v.get()
+                        value.data[key] = v
+
                 if value.errors:
                     for error in value.errors:
                         logger.error('subscription error',
